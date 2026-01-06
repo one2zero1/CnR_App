@@ -122,20 +122,32 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   Widget build(BuildContext context) {
     final isThief = widget.role == PlayerRole.thief;
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              _buildHeader(isThief),
-              Expanded(child: _buildMapArea(isThief)),
-              _buildInfoPanel(isThief),
-              _buildBottomButtons(isThief),
-            ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('게임 중에는 뒤로 갈 수 없습니다. 게임 종료 버튼을 이용해주세요.'),
+            duration: Duration(seconds: 2),
           ),
-          if (_showingLocationAlert) _buildLocationAlert(),
-          _buildVoiceButton(isThief),
-        ],
+        );
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            Column(
+              children: [
+                _buildHeader(isThief),
+                Expanded(child: _buildMapArea(isThief)),
+                _buildInfoPanel(isThief),
+                _buildBottomButtons(isThief),
+              ],
+            ),
+            if (_showingLocationAlert) _buildLocationAlert(),
+            _buildVoiceButton(isThief),
+          ],
+        ),
       ),
     );
   }
