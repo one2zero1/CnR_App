@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
+import '../widgets/flutter_map_widget.dart';
 import 'game_result_screen.dart';
 
 class SpectatorScreen extends StatefulWidget {
@@ -15,10 +19,89 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   int _remainingSeconds = 1200;
   int _survivorCount = 2;
 
+  // 위치 관련
+  LatLng _currentPosition = const LatLng(37.5665, 126.9780);
+  StreamSubscription<Position>? _positionStream;
+
+  // 테스트용 더미 마커
+  final List<PlayerMarkerData> _dummyMarkers = [
+    PlayerMarkerData(
+      id: '1',
+      nickname: '경찰1',
+      position: const LatLng(37.5670, 126.9785),
+      isPolice: true,
+    ),
+    PlayerMarkerData(
+      id: '2',
+      nickname: '경찰2',
+      position: const LatLng(37.5668, 126.9790),
+      isPolice: true,
+    ),
+    PlayerMarkerData(
+      id: '3',
+      nickname: '도둑1',
+      position: const LatLng(37.5660, 126.9775),
+      isPolice: false,
+    ),
+    PlayerMarkerData(
+      id: '4',
+      nickname: '도둑2',
+      position: const LatLng(37.5662, 126.9772),
+      isPolice: false,
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
     _startTimer();
+    _startLocationUpdates();
+  }
+
+  @override
+  void dispose() {
+    _positionStream?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startLocationUpdates() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      try {
+        final position = await Geolocator.getCurrentPosition();
+        if (mounted) {
+          setState(() {
+            _currentPosition = LatLng(position.latitude, position.longitude);
+          });
+        }
+      } catch (e) {
+        debugPrint('초기 위치 실패: $e');
+      }
+
+      const locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 2,
+      );
+
+      _positionStream =
+          Geolocator.getPositionStream(
+            locationSettings: locationSettings,
+          ).listen((Position position) {
+            if (mounted) {
+              setState(() {
+                _currentPosition = LatLng(
+                  position.latitude,
+                  position.longitude,
+                );
+              });
+            }
+          });
+    }
   }
 
   void _startTimer() {
@@ -136,53 +219,16 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Widget _buildMapArea() {
-    return Stack(
-      children: [
-        Container(
-          color: const Color(0xFFE8E8E8),
-          child: CustomPaint(
-            size: Size.infinite,
-            painter: _GridPainter(),
-          ),
-        ),
-        // 영역 경계선
-        Center(
-          child: Container(
-            width: 300,
-            height: 300,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.5),
-                width: 3,
-              ),
-              color: AppColors.primary.withOpacity(0.05),
-            ),
-          ),
-        ),
-        // 경찰 마커들
-        const Positioned(
-          left: 100,
-          top: 200,
-          child: _PlayerMarker(color: AppColors.police, label: '👮'),
-        ),
-        const Positioned(
-          right: 120,
-          top: 250,
-          child: _PlayerMarker(color: AppColors.police, label: '👮'),
-        ),
-        // 도둑 마커들
-        const Positioned(
-          left: 180,
-          top: 150,
-          child: _PlayerMarker(color: AppColors.thief, label: '🏃'),
-        ),
-        const Positioned(
-          right: 80,
-          bottom: 200,
-          child: _PlayerMarker(color: AppColors.thief, label: '🏃'),
-        ),
-      ],
+    return FlutterMapWidget(
+      initialPosition: _currentPosition,
+      overlayCenter: const LatLng(37.5665, 126.9780), // 고정된 게임 영역 (임시)
+      circleRadius: 300, // 임시
+      showCircleOverlay: true,
+      showMyLocation: true, // 관전자 위치 표시
+      playerMarkers: _dummyMarkers,
+      onMapTap: (point) {
+        debugPrint('Spectator map tapped: $point');
+      },
     );
   }
 
@@ -207,13 +253,13 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             children: [
               const Text(
                 '현재 상황',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.thief.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -231,10 +277,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           const SizedBox(height: 12),
           const Text(
             '생존 도둑',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Row(
@@ -247,17 +290,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           const SizedBox(height: 12),
           const Text(
             '잡힌 도둑',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              _buildPlayerChip('나', Colors.grey, false),
-            ],
-          ),
+          Row(children: [_buildPlayerChip('나', Colors.grey, false)]),
         ],
       ),
     );
@@ -269,9 +305,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       decoration: BoxDecoration(
         color: isActive ? color.withOpacity(0.1) : Colors.grey.shade200,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isActive ? color : Colors.grey.shade400,
-        ),
+        border: Border.all(color: isActive ? color : Colors.grey.shade400),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -349,56 +383,4 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       ),
     );
   }
-}
-
-class _PlayerMarker extends StatelessWidget {
-  final Color color;
-  final String label;
-
-  const _PlayerMarker({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(label, style: const TextStyle(fontSize: 14)),
-      ),
-    );
-  }
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.3)
-      ..strokeWidth = 1;
-
-    const spacing = 40.0;
-
-    for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-
-    for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

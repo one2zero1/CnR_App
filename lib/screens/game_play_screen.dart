@@ -560,21 +560,16 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       bottom: 220, // 텍스트 가림 방지를 위해 위치 상향 조정
       right: 16,
       child: GestureDetector(
-        onTapDown: (_) {
-          setState(() => _isTalking = true);
-          // TODO: 실제 WebRTC 음성 전송 시작 (LiveKit/Agora 등 연동)
-        },
-        onTapUp: (_) {
-          setState(() => _isTalking = false);
-          // TODO: 음성 전송 종료
-        },
-        onTapCancel: () {
-          setState(() => _isTalking = false);
+        onTap: () {
+          setState(() {
+            _isTalking = !_isTalking;
+          });
+          // TODO: 음성 전송 상태 변경 (WebRTC 연동)
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          width: _isTalking ? 80 : 64,
-          height: _isTalking ? 80 : 64,
+          duration: const Duration(milliseconds: 200),
+          width: 70, // 고정 크기 또는 약간의 변화
+          height: 70,
           decoration: BoxDecoration(
             color: _isTalking
                 ? Colors.redAccent
@@ -599,19 +594,18 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                _isTalking ? Icons.mic : Icons.mic_none,
+                _isTalking ? Icons.mic : Icons.mic_off, // 아이콘 변경
                 color: Colors.white,
-                size: _isTalking ? 32 : 28,
+                size: 32,
               ),
-              if (_isTalking)
-                const Text(
-                  'ON AIR',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Text(
+                _isTalking ? 'ON' : 'OFF',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
             ],
           ),
         ),

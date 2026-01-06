@@ -44,8 +44,18 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
   }
 
   @override
+  void didUpdateWidget(covariant FlutterMapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialPosition != null &&
+        widget.initialPosition != oldWidget.initialPosition) {
+      // 위치가 변경되면 지도를 해당 위치로 이동 (Follow Me)
+      _mapController.move(widget.initialPosition!, _mapController.camera.zoom);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final center = widget.initialPosition ?? LatLng(37.5665, 126.9780);
+    final center = widget.initialPosition ?? const LatLng(37.5665, 126.9780);
 
     return FlutterMap(
       mapController: _mapController,
@@ -69,7 +79,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                 point: widget.overlayCenter ?? center,
                 radius: widget.circleRadius!,
                 useRadiusInMeter: true,
-                color: AppColors.primary.withValues(alpha: 0.2),
+                color: AppColors.primary.withOpacity(0.2),
                 borderColor: AppColors.primary,
                 borderStrokeWidth: 3,
               ),
@@ -135,12 +145,12 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                 height: 24,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.thief,
+                    color: Colors.blue, // 내 위치는 파란색
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 3),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
+                        color: Colors.black.withOpacity(0.3),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -160,13 +170,13 @@ class PlayerMarkerData {
   final String nickname;
   final LatLng position;
   final bool isPolice;
-  final bool isMe;
+  final bool isCaptured;
 
   PlayerMarkerData({
     required this.id,
     required this.nickname,
     required this.position,
     required this.isPolice,
-    this.isMe = false,
+    this.isCaptured = false,
   });
 }
