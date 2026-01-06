@@ -1,229 +1,175 @@
-# 🚓 경도(경찰과 도둑) 백엔드 개발 요구사항 명세서
+# 🚓 Cops and Robbers (현대판 경찰과 도둑) 백엔드 요구사항 명세서
 
-## 1. 개요
-이 문서는 '경찰과 도둑' 플러터 앱을 위한 백엔드 API 및 소켓 이벤트 요구사항을 기술합니다.
-핵심 기능은 **실시간 위치 공유**, **방 관리**, **게임 로직 처리**, **채팅**입니다.
-
----
-
-## 2. 기술 스택 권장사항
-- **Server**: Node.js (Socket.io) 또는 Go/Python (WebSocket) 권장 (실시간성 중요)
-- **Voice Server**: **LiveKit**, **Mediasoup**, 또는 **Agora** (WebRTC 기반 SFU/MCU)
-- **Database**: 
-  - **Redis**: 실시간 위치 정보 및 세션 관리 (고속 처리)
-  - **MongoDB/PostgreSQL**: 사용자 기록, 게임 결과, 로그 저장
+## 1. 개요 및 목표
+이 문서는 'Cops and Robbers (현대판 경찰과 도둑)' 플러터 앱을 위한 백엔드 인프라 및 데이터 구조를 기술합니다.
+**핵심 목표**는 **실시간 위치 공유 및 소셜 액티비티 관리를 위한 안정적인 서버 인프라 구축**입니다.
 
 ---
 
-## 3. 기능 명세
+## 2. 기술 스택 (Firebase 기반)
+- **Language**: Dart (Flutter Backendless)
+- **Auth**: Firebase Authentication (로그인/세션 관리)
+- **Main DB**: Cloud Firestore (영구 데이터 저장: 회원 정보, 전적, 게임 기록)
+- **Realtime Engine**: Firebase Realtime Database (초단위 실시간 데이터: 좌표, 방 상태)
+- **Notification**: FCM (Firebase Cloud Messaging) - 푸시 알림
 
-### 3.1 사용자 (User)
-- **로그인/기기 인증**: 디바이스 ID 또는 닉네임 기반의 간편 인증
-- **프로필 관리**: 닉네임 변경, 전적 조회
+---
 
-### 3.2 방 관리 (Room System)
-REST API 또는 Socket Event로 구현
+## 3. 역할 정의 (Roles)
 
-| 기능 | 설명 | 필요한 데이터 |
+| 역할 | 설명 | 핵심 메커니즘 |
 |---|---|---|
-| **방 생성** | 호스트가 새로운 게임 방 생성 | 게임 설정(시간, 인원, 범위 등), 호스트 정보 |
-| **방 입장** | 참여 코드로 방 입장 | 방 코드, 유저 정보 |
-| **방 정보 조회** | 현재 대기방의 인원 및 상태 확인 | 방 코드 |
-| **팀 설정** | 경찰/도둑 팀 배정 및 변경 | 유저 ID, 변경할 역할 |
-| **준비(Ready)** | 게임 시작 전 준비 상태 토글 | 유저 ID, 상태(true/false) |
-
-### 3.3 게임 플레이 (Real-time Game Logic)
-**WebSocket/Socket.io 필수**
-
-#### A. 위치 동기화 (Core)
-- **위치 업데이트**: 클라이언트가 주기적(예: 1초)으로 내 위치 전송
-- **위치 브로드캐스트**: 
-  - **경찰**: 도둑의 위치를 간헐적으로 확인 (게임 설정에 따름) 또는 특정 아이템 사용 시 확인
-  - **도둑**: 경찰의 위치를 (설정에 따라) 확인
-  - **관전자**: 모든 플레이어 위치 실시간 확인
-
-#### B. 게임 상태 관리
-- **게임 시작**: 호스트가 시작 시 모든 클라이언트에 시작 신호 및 게임 종료 시간 전송
-- **잡기(Arrest)**: 
-  - 경찰이 도둑 근처(예: 3m 이내)에서 "잡기" 버튼 클릭
-  - 서버에서 두 좌표 거리 검증 후 체포 판정
-  - 해당 도둑은 "감옥" 상태로 변경 (이동 불가 또는 아웃)
-- **영역 이탈**: 설정된 반경(중심점 기준)을 벗어난 유저 감지 및 경고/패널티 처리
-- **게임 종료 판정**:
-  - **경찰 승**: 제한 시간 내 모든 도둑 체포
-  - **도둑 승**: 제한 시간 종료 시 도둑 생존
-
-### 3.4 채팅 (Chat & Voice)
-- **전체 채팅**: 방에 있는 모든 유저에게 텍스트 메시지 전송
-- **팀 채팅**: 같은 팀(경찰/도둑)끼리만 보이는 텍스트 메시지
-- **시스템 메시지**: "000님이 입장했습니다", "000님이 체포되었습니다" 등
-- **음성 채팅 (무전기 - Walkie Talkie)**:
-  - **Push-to-Talk (PTT)**: 버튼을 누르고 있는 동안만 음성 전송
-  - **팀별 채널 분리**: 경찰팀과 도둑팀은 서로의 음성을 들을 수 없음
-  - **상태 표시**: 누가 말하고 있는지 UI에 표시 (Speaking Indicator)
-  - **기술 방식**: WebRTC (LiveKit, Agora 권장) 또는 SFU 서버 구축
-
-### 3.5 기록 및 리플레이 (History & Replay)
-- **게임 결과 저장**: 승패 팀, MVP, 플레이 타임 등 DB 저장
-- **경로 저장 (Replay)**: 
-  - 게임 중 모든 플레이어의 이동 경로(좌표 + 타임스탬프)를 시계열 데이터로 저장
-  - 클라이언트에서 '다시보기' 시 해당 데이터 제공
+| **경찰 (Police)** | 도둑을 추격하여 검거하는 역할 | • 실시간 GPS로 도둑 위치 파악 및 포위망 구축<br>• 감옥 주변 감시로 구출 차단 |
+| **도둑 (Thief)** | 경찰을 피해 생존하는 역할 | • 추격을 따돌리고 은신<br>• 감옥에 갇힌 동료 구출<br>• 제한 시간까지 생존 |
 
 ---
 
-## 4. API 엔드포인트 예시 (REST)
+## 4. 상세 기능 명세 및 구현 항목
 
-### Auth
-- `POST /api/auth/login`: 로그인 및 토큰 발급
-- `PATCH /api/user/profile`: 닉네임 수정
+### 4.1 회원 및 전적 관리 (Member & Stats)
+- **Auth**: Firebase Auth 기반 계정 시스템
+- **전적 관리**:
+  - 경찰/도둑 승률 분리 집계
+  - 공통: 총 플레이 횟수, 매너 점수
+  - 시즌제 랭킹 (승률 기반 리더보드)
+  - *게임 종료 시 '정상 종료'된 경우에만 승률 반영*
 
-### Room
-- `POST /api/rooms`: 방 생성 (return: roomCode)
-- `GET /api/rooms/{roomCode}`: 방 정보 조회
-- `POST /api/rooms/join`: 방 입장
+### 4.2 세션 기반 게임 관리 (Session Management)
+- **방 생성**: 6자리 PIN 코드 발급, 종료 시각(Expiration Time) 계산
+- **팀 배정**: 사용자 수동 선택 (게임 시작 후 변경 불가)
+- **게임 시작**: 호스트 권한, 인원 수 검증
+- **상태 관리**:
+  - **세션 유지**: 재입장(Rejoin) 처리 지원
+  - **세션 만료**: 타이머 종료 시 실시간 노드 삭제 및 Firestore로 결과 이관
+  - **강제 종료**: 호스트 권한으로 게임 중단 가능
 
-### Records
-- `GET /api/records/my`: 내 전적 조회
-- `GET /api/records/history/{gameId}`: 특정 게임 상세 기록 및 리플레이 데이터 조회
+### 4.3 실시간 엔진 (Real-time Engine)
+- **Realtime Database** 활용
+- 초단위 GPS 좌표 데이터 중계
+- 팀별 위치 브로드캐스팅 및 가시성(Visibility) 제어 로직 적용
+
+### 4.4 알림 시스템 (Notification)
+- **FCM 기반**: 게임 시작, 팀원 검거/구출 시 실시간 푸시
+- **경고**: 활동 반경(Activity Boundary) 이탈 시 알림
+- **네트워크 상태**: 연결 끊김 감지 및 알림 아이콘 표시
+
+### 4.5 보안 및 치팅 방지
+- **Speed Detection**: 비정상적인 이동 속도 감지 (순간이동 방지)
+- **Server Validation**: 검거/구출 시 서버 측 거리(Distance) 검증
+
+### 4.6 결과 분석
+- 개인별 이동 거리 및 활동량(Kcal) 분석
+- 최종 결과 레포트 및 SNS 공유 이미지 제공
+- 매너 점수 시스템 (신고/칭찬)
 
 ---
 
-## 5. 소켓 이벤트 예시 (Socket.io)
+## 5. 데이터 모델 설계 (Data Model)
 
-### Client -> Server
-- `join_room`: 방 입장 요청
-- `update_location`: 내 위치 전송 (lat, lng)
-- `attempt_arrest`: 체포 시도 (targetId)
-- `send_message`: 채팅 메시지 전송
+### 5.1 Cloud Firestore (Persistent Data)
+영구적으로 보관해야 할 데이터입니다.
 
-### Server -> Client
-- `room_state`: 방 멤버 변경 시 전체 목록 갱신
-- `game_start`: 게임 시작 알림
-- `update_positions`: 다른 플레이어들의 위치 배열
-- `player_arrested`: 누군가 체포되었을 때 알림
-- `game_over`: 게임 종료 및 결과 전송
+#### `users` Collection
+- `uid`: String
+- `nickname`: String
+- `profile_img`: String
+- `manner_point`: Number
+- `police_stats`: { `police_wins`, `police_games_played` }
+- `thief_stats`: { `thief_wins`, `thief_games_played` }
+- `report_history`: { `reported_count`, `praised_count` }
 
----
+#### `game_history` Collection
+- `game_id`: String
+- `date`: Timestamp
+- `duration`: Number
+- `winner_team`: String
+- `participant_uids`: List<String>
+- `end_type`: String (normal, force_ended)
+- `ended_by`: String (uid)
 
-## 6. 데이터 구조 설계 (Data Structure)
+### 5.2 Realtime Database (Live Data)
+게임 진행 중에만 유지되는 휘발성 데이터입니다.
 
-### 6.1 Database Schema (MongoDB Example)
-
-#### Users Collection
-```json
-{
-  "_id": "ObjectId",
-  "deviceId": "String (Unique)",
-  "nickname": "String",
-  "createdAt": "Date",
-  "stats": {
-    "totalGames": "Number",
-    "policeWins": "Number",
-    "thiefWins": "Number",
-    "mvpCount": "Number"
-  }
-}
-```
-
-#### GameHistory Collection
-```json
-{
-  "_id": "ObjectId",
-  "roomId": "String",
-  "startTime": "Date",
-  "endTime": "Date",
-  "mode": "String (Classic, etc)",
-  "winnerTeam": "String (POLICE, THIEF)",
-  "settings": {
-    "timeLimit": "Number",
-    "areaRadius": "Number"
-  },
-  "players": [
-    {
-      "userId": "ObjectId",
-      "nickname": "String",
-      "team": "String",
-      "isMvp": "Boolean",
-      "result": "String (WIN, LOSE, ARRESTED)"
-    }
-  ]
-}
-```
-
-#### Replays Collection
-```json
-{
-  "_id": "ObjectId",
-  "gameId": "ObjectId (Ref: GameHistory)",
-  "frames": [
-    {
-      "timestamp": "Number (Offset ms)",
-      "events": [
-        {
-          "type": "String (MOVE, ARREST, CHAT, VOICE_ON)",
-          "userId": "ObjectId",
-          "data": {
-            "lat": "Number",
-            "lng": "Number",
-            "targetId": "ObjectId"
-          }
-        }
-      ]
-    }
-  ]
-}
-```
-
-### 6.2 Redis Data Structure (In-Memory)
-
-실시간 게임 상태 관리를 위해 사용합니다.
-
-- **Room Key**: `room:{roomId}` (Hash)
-  - `state`: WAITING, PLAYING, ENDED
-  - `hostId`: {userId}
-  - `settings`: {JSON String}
+#### `rooms/{room_id}` Node
+- **session_info**:
+  - `status`: waiting | playing | cleaning | force_ended
+  - `host_id`: String
+  - `pin_code`: String
+  - `expires_at`: Timestamp
+  - `force_end`: { `ended_by`, `ended_at`, `reason` }
   
-- **Player Key**: `room:{roomId}:players` (Hash)
-  - `{userId}`: {
-      "team": "POLICE",
-      "status": "ALIVE", // or ARRESTED
-      "lat": 37.5...,
-      "lng": 127.0...,
-      "lastUpdate": 1700000000
-    }
+- **participants/{user_id}**:
+  - `nickname`: String
+  - `team`: police | thief | unassigned
+  - `ready`: Boolean
+
+- **game_system_rules**:
+  - `game_duration_sec`: Int
+  - `activity_boundary`: { `center_lat`, `center_lng`, `radius_meter`, `alert_on_exit` }
+  - `prison_location`: { `lat`, `lng`, `radius_meter` }
+  - `location_policy`:
+    - `reveal_mode`: always | interval
+    - `police_can_see_thieves`: Boolean
+    - `thieves_can_see_police`: Boolean
+  - `capture_rules`:
+    - `trigger_distance_meter`: 5m
+    - `capture_cooldown_sec`: 3s
+  - `release_rules`:
+    - `trigger_distance_meter`: 10m
+    - `release_duration_sec`: 5s (Hold)
+    - `interrupt_distance_meter`: 15m
+  - `victory_conditions`:
+    - `police_win`: all_thieves_captured
+    - `thief_win`: survive_until_timeout
+
+- **convenience_features**:
+  - `voice_channel_id`: String
+  - `chat_enabled`: Boolean
+
+#### `live_status/{room_id}/{user_id}` Node
+- `pos`: { `lat`, `lng` }
+- `role`: police | thief
+- `state`: { `is_captured`, `captured_at`, `is_released` }
+- `connection_state`:
+  - `status`: online | disconnected | abandoned
+  - `last_ping`: Timestamp
+  - `disconnect_at`: Timestamp (3분 유예)
+
+#### `chat/{room_id}` Node
+- List of { `uid`, `message`, `timestamp` }
 
 ---
 
-## 7. Socket Message Payload 상세
+## 6. 게임 로직 및 흐름 (Game Flow Logic)
 
-### Location Update (Client -> Server)
-```json
-{
-  "event": "update_location",
-  "data": {
-    "lat": 37.5665,
-    "lng": 126.9780,
-    "speed": 4.5, // m/s (부정행위 감지용)
-    "heading": 90.0
-  }
-}
-```
+### 6.1 승리 조건
+- **경찰 승리**: 제한 시간 내 모든 도둑 검거 완료
+- **도둑 승리**: 제한 시간 종료 시 도둑이 최소 1명 이상 생존 (또는 감옥 밖 활동)
 
-### Game State Broadcast (Server -> Client)
-```json
-{
-  "event": "update_positions",
-  "data": {
-    "players": [
-      {
-        "id": "user123",
-        "team": "THIEF",
-        "lat": 37.5665,
-        "lng": 126.9780,
-        "isTalking": true // 음성 채팅 중 여부
-      },
-      // ...
-    ]
-  }
-}
-```
+### 6.2 검거 (Capture) 메커니즘
+- **조건**: 경찰이 도둑 **5m 이내** 접근
+- **액션**: [검거하기] 버튼 클릭 (서버 거리 검증 필수)
+- **쿨다운**: 3초 (연속 검거 방지)
+- **처리**: 도둑 상태 `is_captured = true`, 감옥으로 이동(UI 처리)
+
+### 6.3 구출 (Release) 메커니즘
+- **조건**: 생존 도둑이 감옥(Rescue Zone) **10m 이내** 접근
+- **액션**: [구출하기] 버튼 **5초간 터치 유지 (Hold)**
+- **방해 (Interruption)**: 경찰이 구출 중인 도둑의 **15m 이내** 접근 시 구출 자동 중단
+
+### 6.4 네트워크 연결 끊김 처리 (Disconnection Handling)
+- **Online**: 정상 (10초 주기 Ping)
+- **Disconnected**: 30초 이상 Ping 없을 시 상태 변경. **3분(180초)의 재접속 유예 시간(Grace Period)** 제공.
+- **Abandoned**: 3분 내 재접속 실패 시 '탈주' 처리 (자동 아웃, 매너 점수 -10 차감)
+- **Rejoin**: 앱 재실행 시 로컬 저장소 확인 후 재접속 다이얼로그 표시
+
+### 6.5 경계 이탈 (Boundary Violation)
+- 실시간 GPS 좌표가 `activity_boundary.radius_meter`를 벗어나면 경고 알림 전송
+
+---
+
+## 7. API & 통신 구조 요약
+- **Auth**: Firebase SDK 직접 사용
+- **Game Data Sync**: `FirebaseDatabase.instance.ref('rooms/$roomId').onValue` 스트림 구독
+- **Location Sync**: `Geolocator` 스트림 -> `live_status` 노드 업데이트 (쓰기)
+- **Chat**: `chat` 노드에 push (쓰기) 및 `onChildAdded` 리스너 (읽기)

@@ -1,0 +1,223 @@
+{
+  "project_name": "Cops and Robbers (현대판 경찰과 도둑)",
+  "backend_objective": {
+    "primary_goal": "실시간 위치 공유 및 소셜 액티비티 관리를 위한 안정적인 서버 인프라 구축",
+    "key_technologies": ["Dart", "Firebase Studio", "Cloud Firestore", "Realtime Database"]
+  },
+  "position_definitions": [
+    {
+      "role": "경찰 (Police)",
+      "description": "도둑을 추격하여 검거하는 추격자 역할",
+      "core_mechanics": [
+        "실시간 GPS 지도를 보고 도둑의 위치를 파악하여 포위망 구축",
+        "감옥 주변을 감시하여 도둑의 구출 시도 차단"
+      ]
+    },
+    {
+      "role": "도둑 (Thief)",
+      "description": "경찰을 피해 제한 시간 동안 살아남는 생존자 역할",
+      "core_mechanics": [
+        "경찰의 추격을 따돌리고 시야 밖으로 은신",
+        "감옥에 갇힌 동료 도둑을 터치하여 구출",
+        "제한 시간 종료 시까지 생존"
+      ]
+    }
+  ],
+  "implementation_items": [
+    {
+      "category": "회원 및 전적 관리 (Member & Stats)",
+      "details": [
+        "Firebase Auth 기반 계정 시스템",
+        "경찰 전적: 경찰 플레이 시 승률 (개인 검거 수 제외)",
+        "도둑 전적: 도둑 플레이 시 승률",
+        "공통 전적: 총 플레이 횟수, 매너 점수",
+        "시즌제 랭킹: 승률 기반 리더보드 구현",
+        "전적 집계: 게임 종료 시 사용자가 '정상 종료' 선택 시에만 승률 반영"
+      ]
+    },
+    {
+      "category": "세션 기반 게임 관리",
+      "details": [
+        "세션 시작: 방 생성 및 6자리 PIN 발급, 서버 기준 종료 시각(Expiration Time) 계산",
+        "팀 배정: 사용자 수동 선택 (경찰/도둑), 게임 중 변경 불가",
+        "게임 시작 조건: 최소/최대 인원 수 검증, 호스트만 시작 가능",
+        "세션 유지: 실시간 유저 접속 상태 확인 및 재입장(Rejoin) 처리",
+        "세션 만료: 타이머 종료 시 실시간 노드 삭제 및 결과 영구 저장(Firestore)",
+        "방장 권한: 게임 강제 종료 기능 (force_ended 상태)"
+      ]
+    },
+    {
+      "category": "실시간 엔진 (Real-time Engine)",
+      "details": [
+        "Realtime Database를 활용한 초단위 GPS 좌표 데이터 중계",
+        "팀별 위치 브로드캐스팅 및 상대 팀 가시성 제어 로직"
+      ]
+    },
+    {
+      "category": "알림 시스템 (Notification)",
+      "details": [
+        "FCM(Firebase Cloud Messaging) 기반의 실시간 푸시 전송",
+        "게임 시작 알림 및 팀원 검거 상황 실시간 전파",
+        "활동 경계 이탈 시 경고 알림",
+        "네트워크 끊김 상태 알림 (연결 끊김 아이콘 표시)"
+      ]
+    },
+    {
+      "category": "결과 분석 및 통계 (Stats)",
+      "details": [
+        "게임 종료 후 개인별 이동 거리 및 활동량(Kcal 등) 데이터 분석",
+        "최종 결과 레포트 생성 및 SNS 공유용 이미지 데이터 제공",
+        "매너 점수: 게임 종료 후 신고(욕설, 폭력, 탈주, 비매너) 및 칭찬(좋아요) 시스템"
+      ]
+    },
+    {
+      "category": "보안 및 치팅 방지",
+      "details": [
+        "비정상적인 이동 속도 감지 (순간이동 방지)",
+        "서버 측 GPS 거리 검증 (검거/구출 시)"
+      ]
+    }
+  ],
+"data_model_definition": {
+    "firestore_persistent_data": {
+      "collection_users": {
+        "fields": ["uid", "nickname", "profile_img", "manner_point"],
+        "police_stats": ["police_wins", "police_games_played"],
+        "thief_stats": ["thief_wins", "thief_games_played"],
+        "report_history": ["reported_count", "praised_count"]
+      },
+      "collection_game_history": [
+        "game_id",
+        "date",
+        "duration",
+        "winner_team",
+        "participant_uids",
+        "end_type",
+        "ended_by"
+      ]
+    },
+    "realtime_db_live_data": {
+      "node_rooms": {
+        "room_id": {
+          "session_info": {
+            "status": "waiting | playing | cleaning | force_ended",
+            "host_id": "string",
+            "expires_at": "server_timestamp",
+            "pin_code": "string",
+            "force_end": {
+              "ended_by": "uid",
+              "ended_at": "timestamp",
+              "reason": "host_terminated | insufficient_players"
+            }
+          },
+          "participants": {
+            "user_id": {
+              "nickname": "string",
+              "ready": "boolean",
+              "team": "police | thief | unassigned"
+            }
+          },
+          "game_system_rules": {
+            "game_duration_sec": "int",
+            "min_players": "int",
+            "max_players": "int",
+            "activity_boundary": {
+              "center_lat": "double",
+              "center_lng": "double",
+              "radius_meter": "int",
+              "alert_on_exit": "boolean"
+            },
+            "prison_location": {
+              "lat": "double",
+              "lng": "double",
+              "radius_meter": "int"
+            },
+            "location_policy": {
+              "reveal_mode": "always | interval",
+              "reveal_interval_sec": "int",
+              "is_gps_high_accuracy": "boolean",
+              "police_can_see_thieves": "boolean",
+              "thieves_can_see_police": "boolean"
+            },
+            "capture_rules": {
+              "trigger_distance_meter": 5,
+              "require_button_press": true,
+              "capture_cooldown_sec": 3,
+              "validate_on_server": true
+            },
+            "release_rules": {
+              "trigger_distance_meter": 10,
+              "release_duration_sec": 5,
+              "interruptible": true,
+              "interrupt_distance_meter": 15
+            },
+            "victory_conditions": {
+              "police_win": "all_thieves_captured",
+              "thief_win": "survive_until_timeout"
+            }
+          },
+          "convenience_features": {
+            "voice_channel_id": "string",
+            "chat_enabled": "boolean"
+          }
+        }
+      },
+      "node_live_status": {
+        "room_id": {
+          "user_id": {
+            "pos": { "lat": "double", "lng": "double" },
+            "role": "police | thief",
+            "state": {
+              "is_captured": "boolean",
+              "captured_at": "timestamp",
+              "is_released": "boolean"
+            },
+            "connection_state": {
+              "status": "online | disconnected | abandoned",
+              "last_ping": "server_timestamp",
+              "disconnect_at": "timestamp",
+              "reconnect_grace_period_sec": 180
+            }
+          }
+        }
+      },
+      "node_chat": {
+        "room_id": [
+          { "uid": "string", "message": "string", "timestamp": "server_timestamp" }
+        ]
+      }
+    }
+  },
+  "game_flow_logic": {
+    "victory_conditions": {
+      "police_victory": "모든 도둑 검거 완료",
+      "thief_victory": "제한 시간 동안 최소 1명 이상 생존"
+    },
+    "capture_mechanism": {
+      "description": "경찰이 도둑 5m 이내 접근 시 [검거하기] 버튼 활성화",
+      "validation": "서버 측에서 GPS 좌표 기반 거리 검증",
+      "cooldown": "3초 쿨다운으로 연속 검거 방지",
+      "multi_capture": "여러 경찰이 동시 검거 시도 시 서버에서 처리"
+    },
+    "release_mechanism": {
+      "description": "도둑이 감옥 10m 이내 접근 시 [구출하기] 버튼 5초 터치 유지",
+      "interruption": "경찰이 15m 이내 접근 시 구출 자동 중단",
+      "validation": "서버 측에서 거리 및 시간 검증"
+    },
+    "network_disconnection_handling": {
+      "online": "정상 접속 상태 (10초마다 ping)",
+      "disconnected": "30초 이상 ping 없음, 3분 유예 기간 제공",
+      "abandoned": "3분 내 재접속 없음, 자동 이탈 처리 및 매너 점수 -10",
+      "rejoin": "앱 재실행 시 로컬 저장소 기반 재접속 다이얼로그 제공",
+      "insufficient_players": "한쪽 팀 전원 이탈 시 5초 대기 후 자동 종료"
+    },
+    "boundary_violation": {
+      "detection": "실시간 GPS 좌표 기반 경계 체크",
+      "action": "경계 이탈 시 경고 알림 전송"
+    },
+    "anti_cheat": {
+      "speed_detection": "비정상적인 이동 속도 감지 (순간이동 방지)",
+      "server_validation": "모든 검거/구출 요청은 서버 측 거리 검증 필수"
+    }
+  }
+}
