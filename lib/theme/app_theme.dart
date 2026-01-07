@@ -7,10 +7,11 @@ class AppColors {
   static const Color primaryLight = Color(0xFF64B5F6);
 
   // Role colors
-  static const Color police = Color(0xFF4CAF50);
-  static const Color policeLight = Color(0xFF81C784);
-  static const Color thief = Color(0xFF2196F3);
-  static const Color thiefLight = Color(0xFF64B5F6);
+  // Role colors
+  static const Color police = Color(0xFF1565C0); // Blue 800
+  static const Color policeLight = Color(0xFF42A5F5); // Blue 400
+  static const Color thief = Color(0xFFD32F2F); // Red 700
+  static const Color thiefLight = Color(0xFFEF5350); // Red 400
 
   // Status colors
   static const Color danger = Color(0xFFE53935);

@@ -23,8 +23,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   int _remainingSeconds = 600; // 10분
   int _nextRevealSeconds = 180; // 3분
   bool _showingLocationAlert = false;
+  bool _showingExitWarning = false; // 뒤로가기 경고 상태
   bool _isTalking = false; // 무전기 상태 (PTT)
-  int _survivorCount = 3;
   int _myCaptureCount = 0;
 
   // 채팅 관련
@@ -132,29 +132,58 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('게임 중에는 뒤로 갈 수 없습니다. 게임 종료 버튼을 이용해주세요.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // 커스텀 경고 메시지 표시
+        if (!_showingExitWarning) {
+          setState(() => _showingExitWarning = true);
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              setState(() => _showingExitWarning = false);
+            }
+          });
+        }
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false, // 키보드 올라와도 배경 유지
         body: Stack(
           children: [
-            Column(
-              children: [
-                _buildHeader(isThief),
-                Expanded(
-                  child: Stack(
-                    children: [_buildMapArea(isThief), _buildChatOverlay()],
-                  ),
-                ),
-                _buildInfoPanel(isThief),
-                _buildBottomButtons(isThief),
-              ],
+            // 1. 지도 영역 (전체 화면)
+            Positioned.fill(child: _buildMapArea(isThief)),
+
+            // 2. 어두운 오버레이 (키보드나 팝업 시 배경 강조용, 필요시 사용)
+            // ...
+
+            // 3. 상단 헤더 (Floating)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              right: 16,
+              child: _buildHeader(isThief),
             ),
-            if (_showingLocationAlert) _buildLocationAlert(),
+
+            // 4. 채팅 오버레이 (좌측 하단)
+            Positioned(
+              left: 16,
+              bottom:
+                  100 + MediaQuery.of(context).viewInsets.bottom, // 키보드 위로 이동
+              child: _buildChatOverlay(),
+            ),
+
+            // 5. 하단 버튼/입력창 (Floating)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom:
+                  MediaQuery.of(context).padding.bottom +
+                  16 +
+                  MediaQuery.of(context).viewInsets.bottom, // 키보드 위로 이동
+              child: _buildBottomButtons(isThief),
+            ),
+
+            // 6. 기타 플로팅 버튼들
+            if (_showingLocationAlert)
+              Positioned.fill(child: _buildLocationAlert()),
+            if (_showingExitWarning) _buildExitWarningToast(),
+            if (isThief) _buildCaughtButton(),
             _buildVoiceButton(isThief),
           ],
         ),
@@ -163,72 +192,102 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   Widget _buildHeader(bool isThief) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 8,
-        left: 16,
-        right: 16,
-        bottom: 8,
-      ),
-      decoration: BoxDecoration(
-        color: isThief ? AppColors.thief : AppColors.police,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // 좌측: 역할 + 타이머 캡슐
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isThief ? AppColors.thief : AppColors.police,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.timer, color: Colors.white, size: 18),
-                const SizedBox(width: 4),
-                Text(
-                  _formatTime(_remainingSeconds),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+          child: Row(
+            children: [
+              Text(isThief ? '🏃' : '👮', style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Container(
+                width: 1,
+                height: 16,
+                color: Colors.white.withOpacity(0.5),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.timer, color: Colors.white, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                _formatTime(_remainingSeconds),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  isThief ? '🏃 도둑' : '👮 경찰',
-                  style: TextStyle(
-                    color: isThief ? AppColors.thief : AppColors.police,
-                    fontWeight: FontWeight.bold,
+        ),
+        // 우측: 잡은 수 + 메뉴
+        Row(
+          children: [
+            // 잡은 수 캡슐
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.people, color: Colors.grey[700], size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$_myCaptureCount/3', // TODO: 연동
+                    style: TextStyle(
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () => _showGameMenu(context),
-            icon: const Icon(Icons.menu, color: Colors.white),
-          ),
-        ],
-      ),
+            const SizedBox(width: 12),
+            // 메뉴 버튼
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: () => _showGameMenu(context, isThief),
+                icon: const Icon(Icons.menu, color: Colors.black87),
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -262,134 +321,31 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     );
   }
 
-  Widget _buildInfoPanel(bool isThief) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildInfoItem(
-                icon: Icons.timer,
-                label: '다음 위치 공개',
-                value: _formatTime(_nextRevealSeconds),
-                color: AppColors.warning,
-              ),
-              if (isThief)
-                _buildInfoItem(
-                  icon: Icons.people,
-                  label: '생존자',
-                  value: '$_survivorCount명',
-                  color: AppColors.success,
-                )
-              else
-                _buildInfoItem(
-                  icon: Icons.catching_pokemon,
-                  label: '내 포획',
-                  value: '$_myCaptureCount명',
-                  color: AppColors.police,
-                ),
-              _buildInfoItem(
-                icon: isThief ? Icons.shield : Icons.directions_run,
-                label: isThief ? '남은 도둑' : '남은 도둑',
-                value: '$_survivorCount명',
-                color: isThief ? AppColors.thief : AppColors.danger,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.safe.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle, color: AppColors.safe, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  isThief ? '안전 영역 내' : '추적 중...',
-                  style: TextStyle(
-                    color: AppColors.safe,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildChatOverlay() {
     if (_recentMessages.isEmpty) return const SizedBox.shrink();
 
-    return Positioned(
-      left: 16,
-      bottom: 16,
-      child: Container(
-        width: 250,
-        constraints: const BoxConstraints(maxHeight: 150),
-        child: ListView.builder(
-          reverse: true,
-          itemCount: _recentMessages.length,
-          itemBuilder: (context, index) {
-            final message =
-                _recentMessages[_recentMessages.length - 1 - index]; // 최신순 반전
-            return Container(
-              margin: const EdgeInsets.only(top: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            );
-          },
-        ),
+    return Container(
+      width: 250,
+      constraints: const BoxConstraints(maxHeight: 150),
+      child: ListView.builder(
+        reverse: true,
+        itemCount: _recentMessages.length,
+        itemBuilder: (context, index) {
+          final message =
+              _recentMessages[_recentMessages.length - 1 - index]; // 최신순 반전
+          return Container(
+            margin: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          );
+        },
       ),
     );
   }
@@ -409,103 +365,78 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
   Widget _buildBottomButtons(bool isThief) {
     return Container(
-      padding: const EdgeInsets.all(8),
-      color: Colors.white,
-      child: Column(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: Row(
         children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatScreen(
-                        title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
-                        isTeamChat: true,
-                      ),
-                    ),
-                  );
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.only(left: 16),
+              child: TextField(
+                controller: _chatController,
+                onChanged: (text) {
+                  setState(() {
+                    _isComposing = text.trim().isNotEmpty;
+                  });
                 },
+                onSubmitted: _sendMessage,
+                decoration: const InputDecoration(
+                  hintText: '메시지 입력...',
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  isDense: true,
+                ),
+                style: const TextStyle(fontSize: 15),
+              ),
+            ),
+          ),
+          if (_isComposing)
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () => _sendMessage(_chatController.text),
                 icon: const Icon(
-                  Icons.forum_outlined,
-                  color: AppColors.primary,
+                  Icons.arrow_upward,
+                  color: Colors.white,
+                  size: 20,
                 ),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                padding: EdgeInsets.zero,
               ),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: TextField(
-                    controller: _chatController,
-                    onChanged: (text) {
-                      setState(() {
-                        _isComposing = text.trim().isNotEmpty;
-                      });
-                    },
-                    onSubmitted: _sendMessage,
-                    decoration: const InputDecoration(
-                      hintText: '메시지 입력...',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
-                      isDense: true,
-                    ),
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ),
-              if (_isComposing)
-                IconButton(
-                  onPressed: () => _sendMessage(_chatController.text),
-                  icon: const Icon(Icons.send, color: AppColors.primary),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              if (isThief)
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showCaughtDialog(),
-                    icon: const Icon(Icons.close, size: 18),
-                    label: const Text('잡혔어요'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.danger,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+            )
+          else
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen(
+                      title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
+                      isTeamChat: true,
                     ),
                   ),
-                )
-              else
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.near_me, size: 18),
-                    label: const Text('가장 가까운 도둑'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.police,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.my_location),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.grey.shade200,
-                  padding: const EdgeInsets.all(12),
-                ),
-              ),
-            ],
-          ),
+                );
+              },
+              icon: Icon(Icons.chat_bubble_outline, color: Colors.grey[600]),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
+            ),
         ],
       ),
     );
@@ -534,7 +465,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     );
   }
 
-  void _showGameMenu(BuildContext context) {
+  void _showGameMenu(BuildContext context, bool isThief) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -546,6 +477,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               '게임 메뉴',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 24),
             const SizedBox(height: 24),
             ListTile(
               leading: const Icon(Icons.play_arrow),
@@ -658,19 +590,25 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
   Widget _buildVoiceButton(bool isThief) {
     return Positioned(
-      bottom: 220, // 텍스트 가림 방지를 위해 위치 상향 조정
+      bottom: 220,
       right: 16,
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _isTalking = !_isTalking;
-          });
-          // TODO: 음성 전송 상태 변경 (WebRTC 연동)
+      child: Listener(
+        onPointerDown: (_) {
+          setState(() => _isTalking = true);
+          // TODO: 음성 전송 시작 (WebRTC 연동)
+        },
+        onPointerUp: (_) {
+          setState(() => _isTalking = false);
+          // TODO: 음성 전송 종료
+        },
+        onPointerCancel: (_) {
+          setState(() => _isTalking = false);
+          // TODO: 음성 전송 종료
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 70, // 고정 크기 또는 약간의 변화
-          height: 70,
+          duration: const Duration(milliseconds: 100), // 반응 속도 빠르게
+          width: _isTalking ? 80 : 70, // 누를 때 커지는 효과
+          height: _isTalking ? 80 : 70,
           decoration: BoxDecoration(
             color: _isTalking
                 ? Colors.redAccent
@@ -684,9 +622,9 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               ),
               if (_isTalking)
                 BoxShadow(
-                  color: Colors.redAccent.withOpacity(0.5),
-                  blurRadius: 20,
-                  spreadRadius: 5,
+                  color: Colors.redAccent.withOpacity(0.6),
+                  blurRadius: 25,
+                  spreadRadius: 8,
                 ),
             ],
             border: Border.all(color: Colors.white, width: _isTalking ? 4 : 2),
@@ -695,20 +633,76 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                _isTalking ? Icons.mic : Icons.mic_off, // 아이콘 변경
+                _isTalking ? Icons.mic : Icons.mic_none,
                 color: Colors.white,
                 size: 32,
               ),
+              if (!_isTalking)
+                const Text(
+                  'HOLD',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCaughtButton() {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 80, // 헤더 아래 적절한 위치
+      right: 16,
+      child: GestureDetector(
+        onTap: _showCaughtDialog,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.danger,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.back_hand, color: Colors.white),
+              SizedBox(width: 8),
               Text(
-                _isTalking ? 'ON' : 'OFF',
-                style: const TextStyle(
+                '잡혔어요',
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
                   fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExitWarningToast() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          '뒤로 갈 수 없습니다. 종료 버튼을 이용해주세요.',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );

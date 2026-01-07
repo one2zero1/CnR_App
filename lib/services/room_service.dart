@@ -3,7 +3,6 @@ import 'dart:math';
 import '../models/room_model.dart';
 import '../models/user_model.dart';
 import '../models/game_types.dart';
-import 'package:latlong2/latlong.dart';
 
 abstract class RoomService {
   Future<String> createRoom({
