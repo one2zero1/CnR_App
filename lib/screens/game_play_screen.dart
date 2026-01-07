@@ -4,12 +4,13 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
 import '../widgets/flutter_map_widget.dart';
-import 'waiting_room_screen.dart';
 import 'chat_screen.dart';
 import 'spectator_screen.dart';
+import '../models/game_types.dart';
+import 'move_to_jail_screen.dart';
 
 class GamePlayScreen extends StatefulWidget {
-  final PlayerRole role;
+  final TeamRole role;
   final String gameName;
 
   const GamePlayScreen({super.key, required this.role, required this.gameName});
@@ -25,6 +26,11 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   bool _isTalking = false; // 무전기 상태 (PTT)
   int _survivorCount = 3;
   int _myCaptureCount = 0;
+
+  // 채팅 관련
+  final List<String> _recentMessages = [];
+  final TextEditingController _chatController = TextEditingController();
+  bool _isComposing = false;
 
   // 위치 관련
   LatLng _currentPosition = const LatLng(37.5665, 126.9780);
@@ -120,7 +126,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isThief = widget.role == PlayerRole.thief;
+    final isThief = widget.role == TeamRole.thief;
 
     return PopScope(
       canPop: false,
@@ -139,7 +145,11 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             Column(
               children: [
                 _buildHeader(isThief),
-                Expanded(child: _buildMapArea(isThief)),
+                Expanded(
+                  child: Stack(
+                    children: [_buildMapArea(isThief), _buildChatOverlay()],
+                  ),
+                ),
                 _buildInfoPanel(isThief),
                 _buildBottomButtons(isThief),
               ],
@@ -226,6 +236,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     return FlutterMapWidget(
       initialPosition: _currentPosition,
       overlayCenter: const LatLng(37.5665, 126.9780), // 게임 영역 중심 고정
+      jailPosition: const LatLng(37.5668, 126.9782), // 감옥 위치 (테스트)
       circleRadius: 300,
       showCircleOverlay: true,
       showMyLocation: true,
@@ -350,67 +361,150 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     );
   }
 
+  Widget _buildChatOverlay() {
+    if (_recentMessages.isEmpty) return const SizedBox.shrink();
+
+    return Positioned(
+      left: 16,
+      bottom: 16,
+      child: Container(
+        width: 250,
+        constraints: const BoxConstraints(maxHeight: 150),
+        child: ListView.builder(
+          reverse: true,
+          itemCount: _recentMessages.length,
+          itemBuilder: (context, index) {
+            final message =
+                _recentMessages[_recentMessages.length - 1 - index]; // 최신순 반전
+            return Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _sendMessage(String text) {
+    if (text.trim().isEmpty) return;
+    setState(() {
+      _recentMessages.add('나: $text');
+      if (_recentMessages.length > 5) {
+        _recentMessages.removeAt(0); // 최근 5개만 유지
+      }
+      _chatController.clear();
+      _isComposing = false;
+    });
+    // TODO: 실제 채팅 서버 전송 로직 추가
+  }
+
   Widget _buildBottomButtons(bool isThief) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.grey.shade100,
-      child: Row(
+      padding: const EdgeInsets.all(8),
+      color: Colors.white,
+      child: Column(
         children: [
-          if (isThief)
-            Expanded(
-              flex: 2,
-              child: ElevatedButton.icon(
-                onPressed: () => _showCaughtDialog(),
-                icon: const Icon(Icons.close),
-                label: const Text('잡혔어요'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.danger,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+          Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
+                        isTeamChat: true,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.forum_outlined,
+                  color: AppColors.primary,
                 ),
               ),
-            )
-          else
-            Expanded(
-              flex: 2,
-              child: ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.near_me),
-                label: const Text('가장 가까운 도둑'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.police,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-            ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
-                    isTeamChat: true,
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextField(
+                    controller: _chatController,
+                    onChanged: (text) {
+                      setState(() {
+                        _isComposing = text.trim().isNotEmpty;
+                      });
+                    },
+                    onSubmitted: _sendMessage,
+                    decoration: const InputDecoration(
+                      hintText: '메시지 입력...',
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      isDense: true,
+                    ),
+                    style: const TextStyle(fontSize: 14),
                   ),
                 ),
-              );
-            },
-            icon: const Icon(Icons.chat),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: const EdgeInsets.all(12),
-            ),
+              ),
+              if (_isComposing)
+                IconButton(
+                  onPressed: () => _sendMessage(_chatController.text),
+                  icon: const Icon(Icons.send, color: AppColors.primary),
+                ),
+            ],
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.my_location),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: const EdgeInsets.all(12),
-            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (isThief)
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showCaughtDialog(),
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text('잡혔어요'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.danger,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.near_me, size: 18),
+                    label: const Text('가장 가까운 도둑'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.police,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.my_location),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.grey.shade200,
+                  padding: const EdgeInsets.all(12),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -515,7 +609,14 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               Navigator.pop(context);
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (_) => const CaughtScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const MoveToJailScreen(
+                    jailPosition: LatLng(
+                      37.5668,
+                      126.9782,
+                    ), // TODO: 실제 감옥 위치 사용
+                  ),
+                ),
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),

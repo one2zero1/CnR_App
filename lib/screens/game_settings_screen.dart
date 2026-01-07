@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../models/game_types.dart';
 import 'area_settings_screen.dart';
 
 class GameSettingsScreen extends StatefulWidget {
@@ -11,9 +12,9 @@ class GameSettingsScreen extends StatefulWidget {
 
 class _GameSettingsScreenState extends State<GameSettingsScreen> {
   final TextEditingController _gameNameController = TextEditingController();
-  int _selectedPlayTime = 30;
-  int _selectedLocationInterval = 3;
-  int _selectedCaptureDistance = 5;
+  double _playTime = 30;
+  double _locationInterval = 3;
+  RoleAssignmentMethod _roleMethod = RoleAssignmentMethod.manual;
 
   @override
   void dispose() {
@@ -49,42 +50,116 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
             const SizedBox(height: 24),
             _buildSection(
               title: '플레이 시간',
-              child: _buildOptionGroup(
-                options: [15, 30, 60],
-                selectedValue: _selectedPlayTime,
-                unit: '분',
-                defaultValue: 30,
-                onChanged: (value) {
-                  setState(() => _selectedPlayTime = value);
-                },
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '10분',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      Text(
+                        '${_playTime.toInt()}분',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const Text(
+                        '60분',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: _playTime,
+                    min: 10,
+                    max: 60,
+                    divisions: 10,
+                    label: '${_playTime.toInt()}분',
+                    activeColor: AppColors.primary,
+                    onChanged: (value) {
+                      setState(() => _playTime = value);
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
             _buildSection(
               title: '위치 공개 주기',
               description: '도둑 위치가 경찰에게 공개되는 간격',
-              child: _buildOptionGroup(
-                options: [1, 3, 5],
-                selectedValue: _selectedLocationInterval,
-                unit: '분',
-                defaultValue: 3,
-                onChanged: (value) {
-                  setState(() => _selectedLocationInterval = value);
-                },
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '실시간',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      Text(
+                        _locationInterval == 0
+                            ? '실시간'
+                            : '${_locationInterval.toInt()}분',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const Text(
+                        '10분',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: _locationInterval,
+                    min: 0,
+                    max: 10,
+                    divisions: 10,
+                    label: _locationInterval == 0
+                        ? '실시간'
+                        : '${_locationInterval.toInt()}분',
+                    activeColor: AppColors.primary,
+                    onChanged: (value) {
+                      setState(() => _locationInterval = value);
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
             _buildSection(
-              title: '포획 판정 거리',
-              description: '경찰이 도둑을 잡을 수 있는 최대 거리',
-              child: _buildOptionGroup(
-                options: [3, 5, 10],
-                selectedValue: _selectedCaptureDistance,
-                unit: 'm',
-                defaultValue: 5,
-                onChanged: (value) {
-                  setState(() => _selectedCaptureDistance = value);
-                },
+              title: '역할 설정 방식',
+              description: '플레이어 역할을 어떻게 정할지 선택하세요',
+              child: Column(
+                children: [
+                  RadioListTile<RoleAssignmentMethod>(
+                    title: const Text('자율 (플레이어가 직접 선택)'),
+                    value: RoleAssignmentMethod.manual,
+                    groupValue: _roleMethod,
+                    onChanged: (value) => setState(() => _roleMethod = value!),
+                    activeColor: AppColors.primary,
+                  ),
+                  RadioListTile<RoleAssignmentMethod>(
+                    title: const Text('지정 (방장이 설정)'),
+                    value: RoleAssignmentMethod.host,
+                    groupValue: _roleMethod,
+                    onChanged: (value) => setState(() => _roleMethod = value!),
+                    activeColor: AppColors.primary,
+                  ),
+                  RadioListTile<RoleAssignmentMethod>(
+                    title: const Text('랜덤 (게임 시작 시 자동 배정)'),
+                    value: RoleAssignmentMethod.random,
+                    groupValue: _roleMethod,
+                    onChanged: (value) => setState(() => _roleMethod = value!),
+                    activeColor: AppColors.primary,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 48),
@@ -97,9 +172,9 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
                       gameName: _gameNameController.text.isEmpty
                           ? '새 게임'
                           : _gameNameController.text,
-                      playTime: _selectedPlayTime,
-                      locationInterval: _selectedLocationInterval,
-                      captureDistance: _selectedCaptureDistance,
+                      playTime: _playTime.toInt(),
+                      locationInterval: _locationInterval.toInt(),
+                      roleMethod: _roleMethod,
                     ),
                   ),
                 );
@@ -153,75 +228,6 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
         const SizedBox(height: 12),
         child,
       ],
-    );
-  }
-
-  Widget _buildOptionGroup({
-    required List<int> options,
-    required int selectedValue,
-    required String unit,
-    required int defaultValue,
-    required ValueChanged<int> onChanged,
-  }) {
-    return Row(
-      children: options.map((option) {
-        final isSelected = option == selectedValue;
-        final isDefault = option == defaultValue;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: option == options.first ? 0 : 4,
-              right: option == options.last ? 0 : 4,
-            ),
-            child: Material(
-              color: isSelected ? AppColors.primary : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              elevation: isSelected ? 2 : 1,
-              child: InkWell(
-                onTap: () => onChanged(option),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Column(
-                    children: [
-                      Text(
-                        '$option$unit',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : AppColors.textPrimary,
-                        ),
-                      ),
-                      if (isDefault) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.white.withOpacity(0.2)
-                                : AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '기본',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isSelected ? Colors.white : AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }

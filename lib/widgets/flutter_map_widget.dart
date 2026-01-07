@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 class FlutterMapWidget extends StatefulWidget {
   final LatLng? initialPosition;
   final LatLng? overlayCenter; // 오버레이 중심 좌표
+  final LatLng? jailPosition; // 감옥 위치
   final double? circleRadius;
   final bool showMyLocation;
   final bool showCircleOverlay;
@@ -18,6 +19,7 @@ class FlutterMapWidget extends StatefulWidget {
     this.initialPosition,
     this.circleRadius,
     this.overlayCenter, // 오버레이 중심 (옵션)
+    this.jailPosition,
     this.showMyLocation = true,
     this.showCircleOverlay = false,
     this.playerMarkers = const [],
@@ -67,7 +69,9 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
       children: [
         // 지도 타일 레이어 (OpenStreetMap)
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c', 'd'],
           userAgentPackageName: 'com.example.gyeong_do',
         ),
 
@@ -155,6 +159,37 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                         offset: const Offset(0, 2),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+        // 감옥 마커
+        if (widget.jailPosition != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: widget.jailPosition!,
+                width: 40,
+                height: 40,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: AppColors.police, width: 2),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.grid_view,
+                    color: AppColors.police,
+                    size: 24,
                   ),
                 ),
               ),

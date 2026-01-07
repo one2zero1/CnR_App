@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../theme/app_theme.dart';
 import 'game_play_screen.dart';
 import 'chat_screen.dart';
-
-enum PlayerRole { police, thief }
+import '../models/game_types.dart';
 
 class Player {
   final String id;
   final String nickname;
-  PlayerRole role;
+  TeamRole role;
   bool isReady;
   bool isHost;
 
   Player({
     required this.id,
     required this.nickname,
-    this.role = PlayerRole.thief,
+    this.role = TeamRole.thief,
     this.isReady = false,
     this.isHost = false,
   });
@@ -25,12 +25,14 @@ class WaitingRoomScreen extends StatefulWidget {
   final String roomCode;
   final bool isHost;
   final String gameName;
+  final RoleAssignmentMethod roleMethod;
 
   const WaitingRoomScreen({
     super.key,
     required this.roomCode,
     required this.isHost,
     required this.gameName,
+    this.roleMethod = RoleAssignmentMethod.manual,
   });
 
   @override
@@ -41,13 +43,22 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   late List<Player> _players;
   bool _isReady = false;
 
+  // For random mode
+  int _policeCount = 1;
+
   @override
   void initState() {
     super.initState();
     _players = [
-      Player(id: '1', nickname: '나', role: PlayerRole.police, isHost: widget.isHost, isReady: true),
-      Player(id: '2', nickname: '플레이어2', role: PlayerRole.thief, isReady: true),
-      Player(id: '3', nickname: '플레이어3', role: PlayerRole.thief, isReady: false),
+      Player(
+        id: '1',
+        nickname: '나',
+        role: TeamRole.police,
+        isHost: widget.isHost,
+        isReady: true,
+      ),
+      Player(id: '2', nickname: '플레이어2', role: TeamRole.thief, isReady: true),
+      Player(id: '3', nickname: '플레이어3', role: TeamRole.thief, isReady: false),
     ];
   }
 
@@ -62,19 +73,31 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
 
   void _startGame() {
     if (_allReady) {
+      // 랜덤 배정 로직 (실제로는 서버에서 처리하지만 여기서는 임시 구현)
+      if (widget.roleMethod == RoleAssignmentMethod.random) {
+        // _policeCount에 맞춰 랜덤 배정
+        final random = math.Random();
+        List<Player> shuffled = List.from(_players)..shuffle(random);
+        for (int i = 0; i < shuffled.length; i++) {
+          shuffled[i].role = i < _policeCount
+              ? TeamRole.police
+              : TeamRole.thief;
+        }
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => GamePlayScreen(
-            role: _players.first.role,
+            role: _players.firstWhere((p) => p.id == '1').role,
             gameName: widget.gameName,
           ),
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('모든 참가자가 준비를 완료해야 합니다')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('모든 참가자가 준비를 완료해야 합니다')));
     }
   }
 
@@ -158,6 +181,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               },
             ),
           ),
+          if (widget.isHost && widget.roleMethod == RoleAssignmentMethod.random)
+            _buildRandomRoleSettings(),
           _buildChatPreview(),
           _buildBottomButtons(),
         ],
@@ -177,12 +202,12 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: player.role == PlayerRole.police
+                  backgroundColor: player.role == TeamRole.police
                       ? AppColors.police.withOpacity(0.2)
                       : AppColors.thief.withOpacity(0.2),
                   child: Icon(
                     Icons.person,
-                    color: player.role == PlayerRole.police
+                    color: player.role == TeamRole.police
                         ? AppColors.police
                         : AppColors.thief,
                   ),
@@ -197,7 +222,11 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                         color: Colors.amber,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.star, size: 12, color: Colors.white),
+                      child: const Icon(
+                        Icons.star,
+                        size: 12,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
               ],
@@ -219,7 +248,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                       if (isMe)
                         Container(
                           margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.primary,
                             borderRadius: BorderRadius.circular(4),
@@ -235,7 +267,11 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   if (player.isReady)
                     const Row(
                       children: [
-                        Icon(Icons.check_circle, size: 14, color: AppColors.success),
+                        Icon(
+                          Icons.check_circle,
+                          size: 14,
+                          color: AppColors.success,
+                        ),
                         SizedBox(width: 4),
                         Text(
                           '준비완료',
@@ -257,14 +293,17 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 ],
               ),
             ),
-            if (isMe || widget.isHost)
+            if (_canModifyRole(player, isMe))
               _buildRoleToggle(player)
             else
               _buildRoleDisplay(player),
             if (widget.isHost && !isMe)
               IconButton(
                 onPressed: () => _kickPlayer(player),
-                icon: const Icon(Icons.remove_circle_outline, color: AppColors.danger),
+                icon: const Icon(
+                  Icons.remove_circle_outline,
+                  color: AppColors.danger,
+                ),
               ),
           ],
         ),
@@ -272,15 +311,23 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     );
   }
 
+  bool _canModifyRole(Player player, bool isMe) {
+    if (widget.roleMethod == RoleAssignmentMethod.random) return false;
+    if (widget.roleMethod == RoleAssignmentMethod.manual && isMe) return true;
+    if (widget.roleMethod == RoleAssignmentMethod.host && widget.isHost)
+      return true;
+    return false;
+  }
+
   Widget _buildRoleToggle(Player player) {
-    return SegmentedButton<PlayerRole>(
+    return SegmentedButton<TeamRole>(
       segments: const [
         ButtonSegment(
-          value: PlayerRole.police,
+          value: TeamRole.police,
           label: Text('👮', style: TextStyle(fontSize: 16)),
         ),
         ButtonSegment(
-          value: PlayerRole.thief,
+          value: TeamRole.thief,
           label: Text('🏃', style: TextStyle(fontSize: 16)),
         ),
       ],
@@ -298,22 +345,90 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   }
 
   Widget _buildRoleDisplay(Player player) {
+    if (widget.roleMethod == RoleAssignmentMethod.random) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Text(
+          '❓ 미정',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: player.role == PlayerRole.police
+        color: player.role == TeamRole.police
             ? AppColors.police.withOpacity(0.1)
             : AppColors.thief.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
-        player.role == PlayerRole.police ? '👮 경찰' : '🏃 도둑',
+        player.role == TeamRole.police ? '👮 경찰' : '🏃 도둑',
         style: TextStyle(
           fontWeight: FontWeight.bold,
-          color: player.role == PlayerRole.police
+          color: player.role == TeamRole.police
               ? AppColors.police
               : AppColors.thief,
         ),
+      ),
+    );
+  }
+
+  Widget _buildRandomRoleSettings() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '🕵️ 경찰 인원 설정',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                '$_policeCount명',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: _policeCount.toDouble(),
+            min: 1,
+            max: math.max(1, _players.length - 1).toDouble(),
+            divisions: math.max(1, _players.length - 2),
+            label: '$_policeCount명',
+            activeColor: AppColors.primary,
+            onChanged: (value) {
+              setState(() {
+                _policeCount = value.toInt();
+              });
+            },
+          ),
+          const Text(
+            '게임 시작 시 무작위로 경찰이 배정됩니다.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+        ],
       ),
     );
   }
@@ -359,17 +474,12 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    title: '전체 채팅',
-                    isTeamChat: false,
-                  ),
+                  builder: (_) => ChatScreen(title: '전체 채팅', isTeamChat: false),
                 ),
               );
             },
             icon: const Icon(Icons.chat),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.grey.shade200,
-            ),
+            style: IconButton.styleFrom(backgroundColor: Colors.grey.shade200),
           ),
           const SizedBox(width: 8),
           if (widget.isHost)
@@ -398,7 +508,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                     icon: Icon(_isReady ? Icons.close : Icons.check),
                     label: Text(_isReady ? '준비 취소' : '준비 완료'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isReady ? Colors.grey : AppColors.primary,
+                      backgroundColor: _isReady
+                          ? Colors.grey
+                          : AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),

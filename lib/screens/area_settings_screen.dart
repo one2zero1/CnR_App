@@ -1,23 +1,23 @@
-import 'dart:math'; // Random
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
-import 'room_created_screen.dart';
+import '../models/game_types.dart';
+import 'jail_settings_screen.dart';
 
 class AreaSettingsScreen extends StatefulWidget {
   final String gameName;
   final int playTime;
   final int locationInterval;
-  final int captureDistance;
+  final RoleAssignmentMethod roleMethod;
 
   const AreaSettingsScreen({
     super.key,
     required this.gameName,
     required this.playTime,
     required this.locationInterval,
-    required this.captureDistance,
+    this.roleMethod = RoleAssignmentMethod.manual,
   });
 
   @override
@@ -106,7 +106,8 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
                   children: [
                     TileLayer(
                       urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                      subdomains: const ['a', 'b', 'c', 'd'],
                       userAgentPackageName: 'com.example.gyeong_do',
                     ),
                     // 영역 표시
@@ -282,18 +283,16 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
                   const Spacer(),
                   ElevatedButton(
                     onPressed: () {
-                      final roomCode = (100000 + Random().nextInt(900000))
-                          .toString();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => RoomCreatedScreen(
-                            roomCode: roomCode,
+                          builder: (_) => JailSettingsScreen(
                             gameName: widget.gameName,
                             playTime: widget.playTime,
                             locationInterval: widget.locationInterval,
-                            captureDistance: widget.captureDistance,
+                            roleMethod: widget.roleMethod,
                             radius: _radius.toInt(),
+                            centerPosition: _centerPosition,
                           ),
                         ),
                       );
@@ -306,7 +305,7 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
                       ),
                     ),
                     child: const Text(
-                      '설정 완료',
+                      '다음 단계',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

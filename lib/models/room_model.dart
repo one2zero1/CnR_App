@@ -81,21 +81,31 @@ class GameSettings {
   final int timeLimit;
   final int areaRadius;
   final LatLng center;
+  final LatLng jail;
+  final RoleAssignmentMethod roleMethod;
 
   GameSettings({
     required this.timeLimit,
     required this.areaRadius,
     required this.center,
+    required this.jail,
+    required this.roleMethod,
   });
 
   factory GameSettings.fromMap(Map<String, dynamic> data) {
     final boundary = data['activity_boundary'] ?? {};
+    final jailData = data['jail_location'] ?? {};
     return GameSettings(
       timeLimit: data['game_duration_sec'] ?? 600,
       areaRadius: boundary['radius_meter'] ?? 300,
       center: LatLng(
         boundary['center_lat'] ?? 37.5665,
         boundary['center_lng'] ?? 126.9780,
+      ),
+      jail: LatLng(jailData['lat'] ?? 37.5665, jailData['lng'] ?? 126.9780),
+      roleMethod: RoleAssignmentMethod.values.firstWhere(
+        (e) => e.name == (data['role_method'] ?? 'manual'),
+        orElse: () => RoleAssignmentMethod.manual,
       ),
     );
   }

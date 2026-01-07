@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme/app_theme.dart';
+import '../models/game_types.dart';
 import 'waiting_room_screen.dart';
 
 class RoomCreatedScreen extends StatelessWidget {
@@ -8,8 +10,10 @@ class RoomCreatedScreen extends StatelessWidget {
   final String gameName;
   final int playTime;
   final int locationInterval;
-  final int captureDistance;
+  final RoleAssignmentMethod roleMethod;
   final int radius;
+  final LatLng? centerPosition;
+  final LatLng? jailPosition;
 
   const RoomCreatedScreen({
     super.key,
@@ -17,8 +21,10 @@ class RoomCreatedScreen extends StatelessWidget {
     required this.gameName,
     required this.playTime,
     required this.locationInterval,
-    required this.captureDistance,
+    this.roleMethod = RoleAssignmentMethod.manual,
     required this.radius,
+    this.centerPosition,
+    this.jailPosition,
   });
 
   @override
@@ -32,11 +38,7 @@ class RoomCreatedScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
-                Icons.celebration,
-                size: 80,
-                color: AppColors.success,
-              ),
+              const Icon(Icons.celebration, size: 80, color: AppColors.success),
               const SizedBox(height: 24),
               const Text(
                 '방이 생성되었습니다!',
@@ -129,10 +131,7 @@ class RoomCreatedScreen extends StatelessWidget {
               const Text(
                 '친구들과 코드를 공유하세요',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
               const Spacer(),
               ElevatedButton(
@@ -144,6 +143,7 @@ class RoomCreatedScreen extends StatelessWidget {
                         roomCode: roomCode,
                         isHost: true,
                         gameName: gameName,
+                        roleMethod: roleMethod,
                       ),
                     ),
                   );
@@ -189,7 +189,11 @@ class RoomCreatedScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.qr_code_2, size: 100, color: AppColors.textPrimary),
+                    const Icon(
+                      Icons.qr_code_2,
+                      size: 100,
+                      color: AppColors.textPrimary,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       roomCode,

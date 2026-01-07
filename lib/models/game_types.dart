@@ -22,3 +22,9 @@ enum PlayerState {
   captured,
   released, // 감옥에서 풀려난 직후 (무적 시간 등)
 }
+
+enum RoleAssignmentMethod {
+  manual, // 자율
+  host, // 지정
+  random, // 랜덤
+}
