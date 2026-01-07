@@ -20,11 +20,13 @@ class ChatMessage {
 class ChatScreen extends StatefulWidget {
   final String title;
   final bool isTeamChat;
+  final Color? themeColor; // 테마 색상 추가
 
   const ChatScreen({
     super.key,
     required this.title,
     this.isTeamChat = false,
+    this.themeColor,
   });
 
   @override
@@ -39,6 +41,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // ... (init state logic remains same)
     _messages.addAll([
       ChatMessage(
         id: '1',
@@ -67,13 +70,15 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
 
     setState(() {
-      _messages.add(ChatMessage(
-        id: DateTime.now().toString(),
-        sender: '나',
-        content: text,
-        timestamp: DateTime.now(),
-        isMe: true,
-      ));
+      _messages.add(
+        ChatMessage(
+          id: DateTime.now().toString(),
+          sender: '나',
+          content: text,
+          timestamp: DateTime.now(),
+          isMe: true,
+        ),
+      );
     });
 
     _messageController.clear();
@@ -96,9 +101,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = widget.themeColor ?? AppColors.primary;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        backgroundColor: primaryColor, // 테마 색상 적용
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -121,6 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+      // ... body ...
       body: Column(
         children: [
           Expanded(
@@ -129,17 +138,17 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(16),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                return _buildMessageBubble(_messages[index]);
+                return _buildMessageBubble(_messages[index], primaryColor);
               },
             ),
           ),
-          _buildInputArea(),
+          _buildInputArea(primaryColor),
         ],
       ),
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildMessageBubble(ChatMessage message, Color primaryColor) {
     return Align(
       alignment: message.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -148,8 +157,9 @@ class _ChatScreenState extends State<ChatScreen> {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         child: Column(
-          crossAxisAlignment:
-              message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: message.isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (!message.isMe)
               Padding(
@@ -166,7 +176,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: message.isMe ? AppColors.primary : Colors.white,
+                color: message.isMe ? primaryColor : Colors.white, // 테마 색상 적용
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -193,10 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
               child: Text(
                 _formatTime(message.timestamp),
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textHint,
-                ),
+                style: const TextStyle(fontSize: 10, color: AppColors.textHint),
               ),
             ),
           ],
@@ -205,7 +212,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildInputArea() {
+  Widget _buildInputArea(Color primaryColor) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -250,9 +257,9 @@ class _ChatScreenState extends State<ChatScreen> {
             IconButton(
               onPressed: _sendMessage,
               icon: const Icon(Icons.send),
-              color: AppColors.primary,
+              color: primaryColor,
               style: IconButton.styleFrom(
-                backgroundColor: AppColors.primary.withOpacity(0.1),
+                backgroundColor: primaryColor.withOpacity(0.1),
               ),
             ),
           ],
@@ -272,29 +279,44 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             const Text(
               '이모지',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Expanded(
               child: GridView.count(
                 crossAxisCount: 8,
-                children: [
-                  '😀', '😂', '😍', '🤔', '👍', '👎', '🎉', '🔥',
-                  '💪', '🙏', '👋', '✌️', '🏃', '👮', '🚨', '🎮',
-                ].map((emoji) {
-                  return InkWell(
-                    onTap: () {
-                      _messageController.text += emoji;
-                      Navigator.pop(context);
-                    },
-                    child: Center(
-                      child: Text(emoji, style: const TextStyle(fontSize: 28)),
-                    ),
-                  );
-                }).toList(),
+                children:
+                    [
+                      '😀',
+                      '😂',
+                      '😍',
+                      '🤔',
+                      '👍',
+                      '👎',
+                      '🎉',
+                      '🔥',
+                      '💪',
+                      '🙏',
+                      '👋',
+                      '✌️',
+                      '🏃',
+                      '👮',
+                      '🚨',
+                      '🎮',
+                    ].map((emoji) {
+                      return InkWell(
+                        onTap: () {
+                          _messageController.text += emoji;
+                          Navigator.pop(context);
+                        },
+                        child: Center(
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 28),
+                          ),
+                        ),
+                      );
+                    }).toList(),
               ),
             ),
           ],

@@ -185,7 +185,49 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             if (_showingExitWarning) _buildExitWarningToast(),
             if (isThief) _buildCaughtButton(),
             _buildVoiceButton(isThief),
+            _buildChatScreenButton(isThief), // 채팅 버튼 분리
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatScreenButton(bool isThief) {
+    return Positioned(
+      bottom: 140 + MediaQuery.of(context).viewInsets.bottom, // 키보드 올라오면 같이 이동
+      right: 16,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatScreen(
+                title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
+                isTeamChat: true,
+                themeColor: isThief ? AppColors.thief : AppColors.police,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.chat_bubble_outline,
+            color: isThief ? AppColors.thief : AppColors.police,
+            size: 28,
+          ),
         ),
       ),
     );
@@ -419,23 +461,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 padding: EdgeInsets.zero,
               ),
-            )
-          else
-            IconButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen(
-                      title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
-                      isTeamChat: true,
-                    ),
-                  ),
-                );
-              },
-              icon: Icon(Icons.chat_bubble_outline, color: Colors.grey[600]),
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              padding: EdgeInsets.zero,
             ),
         ],
       ),
