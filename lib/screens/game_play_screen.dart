@@ -491,46 +491,49 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   void _showGameMenu(BuildContext context, bool isThief) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '게임 메뉴',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            const SizedBox(height: 24),
-            ListTile(
-              leading: const Icon(Icons.play_arrow),
-              title: const Text('계속하기'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('설정'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('도움말'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.flag, color: AppColors.danger),
-              title: const Text(
-                '게임 포기',
-                style: TextStyle(color: AppColors.danger),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '게임 메뉴',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showGiveUpDialog();
-              },
-            ),
-          ],
+              const SizedBox(height: 24),
+              ListTile(
+                leading: const Icon(Icons.play_arrow),
+                title: const Text('계속하기'),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: const Text('설정'),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.help_outline),
+                title: const Text('도움말'),
+                onTap: () => Navigator.pop(context),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.flag, color: AppColors.danger),
+                title: const Text(
+                  '게임 포기',
+                  style: TextStyle(color: AppColors.danger),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showGiveUpDialog();
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
