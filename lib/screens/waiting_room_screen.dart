@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:qr_flutter/qr_flutter.dart';
 import '../theme/app_theme.dart';
 import 'game_play_screen.dart';
 import 'chat_screen.dart';
@@ -73,9 +74,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
 
   void _startGame() {
     if (_allReady) {
-      // 랜덤 배정 로직 (실제로는 서버에서 처리하지만 여기서는 임시 구현)
       if (widget.roleMethod == RoleAssignmentMethod.random) {
-        // _policeCount에 맞춰 랜덤 배정
         final random = math.Random();
         List<Player> shuffled = List.from(_players)..shuffle(random);
         for (int i = 0; i < shuffled.length; i++) {
@@ -128,53 +127,36 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: Text(widget.gameName),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: const TextStyle(
+          color: Colors.black,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: _showLeaveDialog,
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.people, size: 18),
-                const SizedBox(width: 4),
-                Text('${_players.length}/8'),
-              ],
-            ),
+          IconButton(
+            onPressed: () {
+              // settings
+            },
+            icon: const Icon(Icons.settings, color: Colors.black),
           ),
         ],
       ),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: AppColors.primary.withOpacity(0.1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.vpn_key, size: 16, color: AppColors.primary),
-                const SizedBox(width: 8),
-                Text(
-                  '방 코드: ${widget.roomCode}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildHeader(),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               itemCount: _players.length,
               itemBuilder: (context, index) {
                 return _buildPlayerCard(_players[index]);
@@ -183,48 +165,193 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
           ),
           if (widget.isHost && widget.roleMethod == RoleAssignmentMethod.random)
             _buildRandomRoleSettings(),
-          _buildChatPreview(),
-          _buildBottomButtons(),
+          _buildBottomArea(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Text(
+            '입장 코드',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                widget.roomCode,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 4,
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('코드가 복사되었습니다!')));
+                },
+                icon: const Icon(Icons.copy, color: Colors.white),
+                tooltip: '코드 복사',
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: _showQRCodeDialog,
+                icon: const Icon(Icons.qr_code_2, color: Colors.white),
+                tooltip: 'QR 코드 보기',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.person, color: Colors.white, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '현재 인원 ${_players.length}/8명',
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showQRCodeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '방 입장 QR 코드',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+              QrImageView(
+                data: widget.roomCode,
+                version: QrVersions.auto,
+                size: 200.0,
+                backgroundColor: Colors.white,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '코드: ${widget.roomCode}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.grey[200],
+                    foregroundColor: Colors.black,
+                  ),
+                  child: const Text('닫기'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildPlayerCard(Player player) {
     final isMe = player.id == '1';
-    return Card(
+    final isPolice = player.role == TeamRole.police;
+    final roleColor = isPolice ? AppColors.police : AppColors.thief;
+
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: roleColor.withOpacity(0.3), width: 1.5),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Stack(
+              clipBehavior: Clip.none,
               children: [
                 CircleAvatar(
-                  radius: 24,
-                  backgroundColor: player.role == TeamRole.police
-                      ? AppColors.police.withOpacity(0.2)
-                      : AppColors.thief.withOpacity(0.2),
-                  child: Icon(
-                    Icons.person,
-                    color: player.role == TeamRole.police
-                        ? AppColors.police
-                        : AppColors.thief,
-                  ),
+                  radius: 26,
+                  backgroundColor: roleColor.withOpacity(0.1),
+                  child: Icon(Icons.person, color: roleColor, size: 28),
                 ),
                 if (player.isHost)
                   Positioned(
-                    right: -2,
-                    top: -2,
+                    top: -4,
+                    right: -4,
                     child: Container(
-                      padding: const EdgeInsets.all(2),
+                      padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
                         color: Colors.amber,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.star,
-                        size: 12,
+                        size: 10,
                         color: Colors.white,
                       ),
                     ),
@@ -278,6 +405,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.success,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -314,32 +442,76 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   bool _canModifyRole(Player player, bool isMe) {
     if (widget.roleMethod == RoleAssignmentMethod.random) return false;
     if (widget.roleMethod == RoleAssignmentMethod.manual && isMe) return true;
-    if (widget.roleMethod == RoleAssignmentMethod.host && widget.isHost)
+    if (widget.roleMethod == RoleAssignmentMethod.host && widget.isHost) {
       return true;
+    }
     return false;
   }
 
   Widget _buildRoleToggle(Player player) {
-    return SegmentedButton<TeamRole>(
-      segments: const [
-        ButtonSegment(
-          value: TeamRole.police,
-          label: Text('👮', style: TextStyle(fontSize: 16)),
-        ),
-        ButtonSegment(
-          value: TeamRole.thief,
-          label: Text('🏃', style: TextStyle(fontSize: 16)),
-        ),
-      ],
-      selected: {player.role},
-      onSelectionChanged: (roles) {
-        setState(() {
-          player.role = roles.first;
-        });
-      },
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    final isPolice = player.role == TeamRole.police;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => player.role = TeamRole.police),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isPolice ? AppColors.police : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: isPolice
+                    ? [
+                        BoxShadow(
+                          color: AppColors.police.withOpacity(0.3),
+                          blurRadius: 4,
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Text(
+                '👮',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isPolice ? Colors.white : Colors.grey,
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => player.role = TeamRole.thief),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: !isPolice ? AppColors.thief : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: !isPolice
+                    ? [
+                        BoxShadow(
+                          color: AppColors.thief.withOpacity(0.3),
+                          blurRadius: 4,
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Text(
+                '🏃',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: !isPolice ? Colors.white : Colors.grey,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -381,11 +553,13 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   Widget _buildRandomRoleSettings() {
     return Container(
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,44 +607,26 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     );
   }
 
-  Widget _buildChatPreview() {
+  Widget _buildBottomArea() {
     return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.chat_bubble_outline, color: AppColors.textSecondary),
-          SizedBox(width: 8),
-          Text(
-            '플레이어2: 준비됐어요!',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomButtons() {
-    return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
             offset: const Offset(0, -5),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            onPressed: () {
+          // Chat Preview Button
+          GestureDetector(
+            onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -478,43 +634,64 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 ),
               );
             },
-            icon: const Icon(Icons.chat),
-            style: IconButton.styleFrom(backgroundColor: Colors.grey.shade200),
-          ),
-          const SizedBox(width: 8),
-          if (widget.isHost)
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.settings),
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.grey.shade200,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
               ),
-            ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: widget.isHost
-                ? ElevatedButton.icon(
-                    onPressed: _startGame,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('게임 시작'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.success,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: _toggleReady,
-                    icon: Icon(_isReady ? Icons.close : Icons.check),
-                    label: Text(_isReady ? '준비 취소' : '준비 완료'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isReady
-                          ? Colors.grey
-                          : AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    color: AppColors.textSecondary,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '플레이어2: 준비됐어요!',
+                      style: TextStyle(color: AppColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Ready/Start Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: widget.isHost ? _startGame : _toggleReady,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: widget.isHost
+                    ? AppColors.success
+                    : AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 4,
+                shadowColor:
+                    (widget.isHost ? AppColors.success : AppColors.primary)
+                        .withOpacity(0.5),
+              ),
+              child: Text(
+                widget.isHost ? '게임 시작' : (_isReady ? '준비 취소' : '준비 완료'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ),
         ],
       ),
