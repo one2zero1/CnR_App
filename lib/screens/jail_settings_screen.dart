@@ -7,7 +7,7 @@ import '../models/game_types.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
 import '../services/room_service.dart';
-import 'room_created_screen.dart';
+import 'waiting_room_screen.dart';
 
 class JailSettingsScreen extends StatefulWidget {
   final String gameName;
@@ -256,16 +256,12 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => RoomCreatedScreen(
+                                  builder: (_) => WaitingRoomScreen(
                                     roomId: creationResult.roomId,
                                     roomCode: creationResult.pinCode,
+                                    isHost: true,
                                     gameName: widget.gameName,
-                                    playTime: widget.playTime,
-                                    locationInterval: widget.locationInterval,
                                     roleMethod: widget.roleMethod,
-                                    radius: widget.radius,
-                                    centerPosition: widget.centerPosition,
-                                    jailPosition: _jailPosition!,
                                   ),
                                 ),
                               );
