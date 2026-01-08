@@ -13,19 +13,17 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      // backgroundColor removed to use Theme
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
+            icon: const Icon(Icons.menu), // Icon color from Theme
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person, color: AppColors.textPrimary),
+            icon: const Icon(Icons.person),
             onPressed: () {
               Navigator.push(
                 context,
@@ -89,7 +87,9 @@ class HomeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const GameSettingsScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const GameSettingsScreen(),
+                    ),
                   );
                 },
               ),
@@ -118,7 +118,9 @@ class HomeScreen extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const MyRecordsScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const MyRecordsScreen(),
+                          ),
                         );
                       },
                     ),
@@ -132,7 +134,9 @@ class HomeScreen extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsScreen(),
+                          ),
                         );
                       },
                     ),
@@ -147,6 +151,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildDrawer(BuildContext context) {
+    // Removed unused theme variable
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -222,8 +227,9 @@ class HomeScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return Material(
-      color: Colors.white,
+      color: theme.cardTheme.color, // Use card color from theme
       borderRadius: BorderRadius.circular(16),
       elevation: 2,
       child: InkWell(
@@ -249,18 +255,22 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color:
+                            theme.colorScheme.onSurface, // Adaptive text color
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.textSecondary,
+                        color: theme
+                            .textTheme
+                            .bodyMedium
+                            ?.color, // Adaptive secondary text
                       ),
                     ),
                   ],
@@ -280,8 +290,9 @@ class HomeScreen extends StatelessWidget {
     required String label,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return Material(
-      color: Colors.white,
+      color: theme.cardTheme.color, // Adaptive card color
       borderRadius: BorderRadius.circular(12),
       elevation: 1,
       child: InkWell(
@@ -295,10 +306,10 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
+                  color: theme.colorScheme.onSurface, // Adaptive text
                 ),
               ),
             ],

@@ -24,14 +24,19 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5), // Light background
+      // backgroundColor: const Color(0xFFF5F5F5), // Removed
       appBar: AppBar(
-        title: const Text('새 게임 만들기', style: TextStyle(color: Colors.black)),
+        title: Text(
+          '새 게임 만들기',
+          style: TextStyle(color: theme.colorScheme.onSurface),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -48,7 +53,8 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
                 decoration: InputDecoration(
                   hintText: '게임 이름을 입력하세요',
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor:
+                      theme.inputDecorationTheme.fillColor ?? Colors.grey[100],
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -251,13 +257,14 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
     String? description,
     required Widget child,
   }) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -280,10 +287,10 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
               const SizedBox(width: 12),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
             ],
@@ -292,7 +299,10 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
             const SizedBox(height: 8),
             Text(
               description,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.textTheme.bodyMedium?.color ?? Colors.grey[600],
+              ),
             ),
           ],
           const SizedBox(height: 20),
@@ -308,6 +318,7 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
     required RoleAssignmentMethod value,
     required IconData icon,
   }) {
+    final theme = Theme.of(context);
     final isSelected = _roleMethod == value;
     return InkWell(
       onTap: () => setState(() => _roleMethod = value),
@@ -318,16 +329,23 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary.withOpacity(0.05)
-              : Colors.white,
+              : theme.cardTheme.color ?? Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey[300]!,
+            color: isSelected
+                ? AppColors.primary
+                : theme.disabledColor.withOpacity(0.3),
             width: isSelected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? AppColors.primary : Colors.grey),
+            Icon(
+              icon,
+              color: isSelected
+                  ? AppColors.primary
+                  : theme.iconTheme.color?.withOpacity(0.5) ?? Colors.grey,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -338,13 +356,19 @@ class _GameSettingsScreenState extends State<GameSettingsScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: isSelected ? AppColors.primary : Colors.black87,
+                      color: isSelected
+                          ? AppColors.primary
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          theme.textTheme.bodyMedium?.color ?? Colors.grey[600],
+                    ),
                   ),
                 ],
               ),

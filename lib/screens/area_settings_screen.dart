@@ -77,6 +77,7 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('놀이 영역 설정'),
@@ -172,14 +173,17 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
                 // 로딩 인디케이터
                 if (_isLoading)
                   Container(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.black.withOpacity(0.3),
                     child: const Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           CircularProgressIndicator(),
                           SizedBox(height: 16),
-                          Text('현재 위치를 가져오는 중...'),
+                          Text(
+                            '현재 위치를 가져오는 중...',
+                            style: TextStyle(color: Colors.white),
+                          ),
                         ],
                       ),
                     ),
@@ -192,7 +196,7 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.cardTheme.color,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
@@ -202,14 +206,17 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
                         ),
                       ],
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.touch_app, color: AppColors.primary),
-                        SizedBox(width: 8),
+                        const Icon(Icons.touch_app, color: AppColors.primary),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '지도를 터치하여 놀이 영역의 중심을 설정하세요.',
-                            style: TextStyle(fontSize: 14),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
                       ],
@@ -222,8 +229,11 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
                   right: 16,
                   child: FloatingActionButton(
                     onPressed: _moveToMyLocation,
-                    backgroundColor: Colors.white,
-                    child: const Icon(Icons.my_location, color: Colors.black),
+                    backgroundColor: theme.cardTheme.color ?? Colors.white,
+                    child: Icon(
+                      Icons.my_location,
+                      color: theme.iconTheme.color ?? Colors.black,
+                    ),
                   ),
                 ),
               ],
@@ -233,10 +243,13 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
             flex: 2,
             child: Container(
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
+              decoration: BoxDecoration(
+                color: theme
+                    .scaffoldBackgroundColor, // Use scaffold background or card color
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                boxShadow: const [
                   BoxShadow(
                     color: Colors.black12,
                     blurRadius: 10,
@@ -247,9 +260,13 @@ class _AreaSettingsScreenState extends State<AreaSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     '영역 크기 (반경)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -28,6 +30,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
+          _buildSectionHeader('화면 설정'),
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    RadioListTile<ThemeMode>(
+                      title: const Text('시스템 설정 따름'),
+                      value: ThemeMode.system,
+                      groupValue: themeProvider.themeMode,
+                      onChanged: (value) => themeProvider.setThemeMode(value!),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    RadioListTile<ThemeMode>(
+                      title: const Text('라이트 모드'),
+                      value: ThemeMode.light,
+                      groupValue: themeProvider.themeMode,
+                      onChanged: (value) => themeProvider.setThemeMode(value!),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    RadioListTile<ThemeMode>(
+                      title: const Text('다크 모드'),
+                      value: ThemeMode.dark,
+                      groupValue: themeProvider.themeMode,
+                      onChanged: (value) => themeProvider.setThemeMode(value!),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const Divider(),
           _buildSectionHeader('알림'),
           _buildSwitchTile(
             title: '위치 공개 알림',
@@ -62,10 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 const Text(
                   '지도 스타일',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 16, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -97,8 +130,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _gpsAccuracy < 0.3
                           ? '낮음 (배터리 절약)'
                           : _gpsAccuracy > 0.7
-                              ? '높음 (정확도 우선)'
-                              : '보통',
+                          ? '높음 (정확도 우선)'
+                          : '보통',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
@@ -116,8 +149,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('배터리', style: TextStyle(fontSize: 12, color: AppColors.textHint)),
-                    Text('정확도', style: TextStyle(fontSize: 12, color: AppColors.textHint)),
+                    Text(
+                      '배터리',
+                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                    ),
+                    Text(
+                      '정확도',
+                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                    ),
                   ],
                 ),
               ],
@@ -154,7 +193,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('버전'),
-            trailing: Text('1.0.0', style: TextStyle(color: AppColors.textSecondary)),
+            trailing: Text(
+              '1.0.0',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.help_outline),
@@ -254,9 +296,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('닉네임 변경'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            hintText: '새 닉네임 입력',
-          ),
+          decoration: const InputDecoration(hintText: '새 닉네임 입력'),
           maxLength: 8,
         ),
         actions: [
@@ -267,9 +307,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('닉네임이 변경되었습니다')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('닉네임이 변경되었습니다')));
             },
             child: const Text('변경'),
           ),
@@ -293,9 +333,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () {
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('로그아웃'),
           ),
         ],

@@ -15,8 +15,8 @@ class MapPreviewScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('게임 지도 확인'),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        // backgroundColor: Colors.white, // Removed
+        // foregroundColor: Colors.black, // Removed
         elevation: 0,
       ),
       body: FlutterMap(

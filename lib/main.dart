@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
+import 'providers/theme_provider.dart';
 import 'screens/splash_screen.dart';
 import 'config/env_config.dart';
 import 'services/auth_service.dart';
@@ -24,15 +25,22 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         Provider<AuthService>(create: (_) => MockAuthService()),
         Provider<RoomService>(create: (_) => HttpRoomService()),
         Provider<GamePlayService>(create: (_) => HttpGamePlayService()),
       ],
-      child: MaterialApp(
-        title: '경찰과 도둑',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const SplashScreen(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            title: '경찰과 도둑',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const SplashScreen(),
+          );
+        },
       ),
     );
   }

@@ -114,6 +114,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('게임 참가하기'),
@@ -130,20 +131,23 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
             const SizedBox(height: 32),
             const Icon(Icons.vpn_key, size: 64, color: AppColors.primary),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               '방 코드 입력',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: theme.colorScheme.onSurface, // Adaptive value
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '6자리 방 코드를 입력하세요',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+              style: TextStyle(
+                fontSize: 16,
+                color: theme.textTheme.bodyMedium?.color, // Adaptive value
+              ),
             ),
             const SizedBox(height: 48),
 
@@ -189,22 +193,24 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                         decoration: BoxDecoration(
                           color: char.isNotEmpty
                               ? AppColors.primary.withOpacity(0.1)
-                              : Colors.white,
+                              : theme.inputDecorationTheme.fillColor ??
+                                    Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isFocused && _focusNode.hasFocus
                                 ? AppColors.primary
                                 : (char.isNotEmpty
                                       ? AppColors.primary
-                                      : AppColors.textHint),
+                                      : theme.disabledColor),
                             width: isFocused && _focusNode.hasFocus ? 2 : 1,
                           ),
                         ),
                         child: Text(
                           char,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       );
@@ -220,7 +226,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.textHint,
+                disabledBackgroundColor: theme.disabledColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: _isLoading

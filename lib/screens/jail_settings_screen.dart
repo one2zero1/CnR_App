@@ -59,6 +59,7 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('감옥 위치 설정'),
@@ -107,7 +108,8 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
                             height: 40,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: Colors
+                                    .white, // Markers on map usually stay white for contrast
                                 border: Border.all(
                                   color: AppColors.police,
                                   width: 2,
@@ -139,7 +141,7 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.cardTheme.color,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
@@ -149,14 +151,17 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
                         ),
                       ],
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.touch_app, color: AppColors.police),
-                        SizedBox(width: 8),
+                        const Icon(Icons.touch_app, color: AppColors.police),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '영역 내부를 터치하여 감옥 위치를 지정하세요.',
-                            style: TextStyle(fontSize: 14),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
                       ],
@@ -170,10 +175,12 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
             flex: 1,
             child: Container(
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
+              decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                boxShadow: const [
                   BoxShadow(
                     color: Colors.black12,
                     blurRadius: 10,
@@ -273,7 +280,7 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      disabledBackgroundColor: Colors.grey.shade300,
+                      disabledBackgroundColor: theme.disabledColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

@@ -213,6 +213,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         final myPlayer = room.participants[_myId];
         final iAmReady = myPlayer?.isReady ?? false;
 
+        final theme = Theme.of(context);
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
@@ -220,34 +221,38 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             _showLeaveDialog(widget.roomId);
           },
           child: Scaffold(
-            backgroundColor: const Color(0xFFF5F5F5),
+            // Use inherited theme background
             appBar: AppBar(
               title: Text(widget.gameName),
               backgroundColor: Colors.transparent,
               elevation: 0,
               centerTitle: true,
-              titleTextStyle: const TextStyle(
-                color: Colors.black,
+              titleTextStyle: TextStyle(
+                color: theme.colorScheme.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
+              iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
               leading: InkWell(
                 onTap: () => _showLeaveDialog(widget.roomId),
                 borderRadius: BorderRadius.circular(50),
                 child: Container(
                   margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.5),
+                    color: theme.colorScheme.surface.withOpacity(0.5),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.black),
+                  child: Icon(
+                    Icons.arrow_back,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
               actions: [
                 Container(
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.5),
+                    color: theme.colorScheme.surface.withOpacity(0.5),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
@@ -260,7 +265,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.map, color: Colors.black),
+                    icon: Icon(Icons.map, color: theme.colorScheme.onSurface),
                     tooltip: '지도 확인',
                   ),
                 ),
@@ -268,7 +273,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   onPressed: () {
                     // settings
                   },
-                  icon: const Icon(Icons.settings, color: Colors.black),
+                  icon: Icon(
+                    Icons.settings,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ],
             ),
@@ -431,6 +439,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   }
 
   Widget _buildPlayerCard(PlayerUIModel player, bool amIHost, RoomModel room) {
+    final theme = Theme.of(context);
     final isMe = player.id == _myId;
     final isPolice = player.role == TeamRole.police;
     final roleColor = isPolice ? AppColors.police : AppColors.thief;
@@ -438,16 +447,16 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardTheme.color, // Use theme card color
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.1), // Slightly stronger shadow
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: roleColor.withOpacity(0.3), width: 1.5),
+        border: Border.all(color: roleColor.withOpacity(0.5), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -458,7 +467,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               children: [
                 CircleAvatar(
                   radius: 26,
-                  backgroundColor: roleColor.withOpacity(0.1),
+                  backgroundColor: roleColor.withOpacity(
+                    0.2,
+                  ), // Increased opacity
                   child: Icon(Icons.person, color: roleColor, size: 28),
                 ),
                 if (player.isHost)
@@ -489,9 +500,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                     children: [
                       Text(
                         player.nickname,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: theme.colorScheme.onSurface, // Adaptive color
                         ),
                       ),
                       if (isMe)
@@ -533,11 +545,13 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                       ],
                     )
                   else
-                    const Text(
+                    Text(
                       '대기중...',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color:
+                            theme.textTheme.bodyMedium?.color ??
+                            AppColors.textSecondary,
                       ),
                     ),
                 ],
@@ -633,7 +647,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.grey.shade200,
+          color:
+              Theme.of(context).inputDecorationTheme.fillColor ??
+              Colors.grey.shade200,
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Text(
@@ -663,10 +679,11 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   }
 
   Widget _buildBottomArea(bool amIHost, bool iAmReady, RoomModel room) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.scaffoldBackgroundColor, // Use scaffold bg or card theme
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
@@ -691,20 +708,24 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: theme.inputDecorationTheme.fillColor ?? Colors.grey[100],
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.chat_bubble_outline,
-                    color: AppColors.textSecondary,
+                    color: theme.iconTheme.color ?? AppColors.textSecondary,
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       '채팅에 참여하세요',
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: TextStyle(
+                        color:
+                            theme.textTheme.bodyMedium?.color ??
+                            AppColors.textSecondary,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -712,7 +733,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
-                    color: AppColors.textSecondary,
+                    color:
+                        theme.iconTheme.color?.withOpacity(0.5) ??
+                        AppColors.textSecondary,
                   ),
                 ],
               ),
