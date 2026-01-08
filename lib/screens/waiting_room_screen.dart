@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import 'game_play_screen.dart';
 import 'chat_screen.dart';
+import 'map_preview_screen.dart'; // Import
 import '../models/game_types.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
@@ -76,24 +77,6 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         _optimisticRoles.remove(_myId!);
       });
       _showError('팀 변경 실패: $e');
-    } finally {
-      // We don't necessarily need to remove it immediately if we want it to stick until server confirms.
-      // But usually, once server responds, the stream updates.
-      // However, if the stream hasn't updated yet, removing it might cause flicker back to old role.
-      // A common pattern is to keep it in optimistic map until the stream data matches it, or just timeout.
-      // Simpler: Just rely on stream update eventually overwriting it.
-      // But we should clean up eventually.
-      // For now, let's leave it in optimistic map until next stream build checks?
-      // Actually, if we leave it, it might get stuck if server rejects.
-      // Let's clear it after a short delay or just let the stream override?
-      // Stream update will trigger rebuild.
-      // If I don't remove it, it persists.
-      // I'll assume server update is fast enough, but to prevent 'flicker' (Status: Old -> Optimistic -> Old (stream lag) -> New),
-      // we need to hold it. But `updateMyStatus` returns `void`, it doesn't return the new state.
-      // The stream is separate.
-      // Let's keep it for a bit or just 1-2 seconds?
-      // Or better: In `build`, if `stream.role == optimisticRole`, remove from map?
-      // Yes, that's smart.
     }
   }
 
@@ -109,11 +92,23 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
 
   Future<void> _leaveRoom(String roomId) async {
     if (_myId == null) return;
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) =>
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
+    );
+
     try {
       await context.read<RoomService>().leaveRoom(roomId, _myId!);
       if (!mounted) return;
+      // Pop loading dialog then nav back
+      Navigator.of(context).pop();
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
+      if (mounted) Navigator.of(context).pop(); // Pop loading
       _showError('방 나가기 실패: $e');
     }
   }
@@ -137,8 +132,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              _leaveRoom(roomId);
+              Navigator.pop(context); // Close confirm dialog
+              _leaveRoom(roomId); // Start leaving logic
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('나가기'),
@@ -186,12 +181,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
           // Check optimistic role
           var role = e.value.team;
           if (_optimisticRoles.containsKey(e.key)) {
-            // If stream matches optimistic, we can remove optimistic entry (synced)
+            // If stream matches optimistic, we can remove optimistic entry
             if (e.value.team == _optimisticRoles[e.key]) {
-              // Post check remove to avoid modifying during build?
-              // Use addPostFrameCallback or just keep it?
-              // It's fine to keep it, it just masks the same value.
-              role = _optimisticRoles[e.key]!;
+              // Synced
             } else {
               role = _optimisticRoles[e.key]!;
             }
@@ -210,53 +202,80 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         final myPlayer = room.participants[_myId];
         final iAmReady = myPlayer?.isReady ?? false;
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF5F5F5),
-          appBar: AppBar(
-            title: Text(widget.gameName),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            centerTitle: true,
-            titleTextStyle: const TextStyle(
-              color: Colors.black,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-            leading: InkWell(
-              onTap: () => _showLeaveDialog(widget.roomId),
-              borderRadius: BorderRadius.circular(50),
-              child: Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
-                  shape: BoxShape.circle,
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            _showLeaveDialog(widget.roomId);
+          },
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF5F5F5),
+            appBar: AppBar(
+              title: Text(widget.gameName),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              centerTitle: true,
+              titleTextStyle: const TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              leading: InkWell(
+                onTap: () => _showLeaveDialog(widget.roomId),
+                borderRadius: BorderRadius.circular(50),
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.black),
                 ),
-                child: const Icon(Icons.arrow_back, color: Colors.black),
               ),
-            ),
-            actions: [
-              IconButton(
-                onPressed: () {
-                  // settings
-                },
-                icon: const Icon(Icons.settings, color: Colors.black),
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              _buildHeader(room.pinCode, players.length),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  itemCount: players.length,
-                  itemBuilder: (context, index) {
-                    return _buildPlayerCard(players[index], amIHost, room);
+              actions: [
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              MapPreviewScreen(settings: room.settings),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.map, color: Colors.black),
+                    tooltip: '지도 확인',
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    // settings
                   },
+                  icon: const Icon(Icons.settings, color: Colors.black),
                 ),
-              ),
-              _buildBottomArea(amIHost, iAmReady, room),
-            ],
+              ],
+            ),
+            body: Column(
+              children: [
+                _buildHeader(room.pinCode, players.length),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    itemCount: players.length,
+                    itemBuilder: (context, index) {
+                      return _buildPlayerCard(players[index], amIHost, room);
+                    },
+                  ),
+                ),
+                _buildBottomArea(amIHost, iAmReady, room),
+              ],
+            ),
           ),
         );
       },

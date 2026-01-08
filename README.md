@@ -83,6 +83,7 @@ lib/
 │   ├── room_created_screen.dart  # 방 생성 완료 (PIN/QR)
 │   ├── join_room_screen.dart     # 방 입장 (PIN/QR 스캔)
 │   ├── waiting_room_screen.dart  # 대기실 (역할 선택)
+│   ├── map_preview_screen.dart   # 지도 미리보기 (게임 설정 확인)
 │   └── game_play_screen.dart     # 게임 메인 지도 화면
 ├── services/           # 비즈니스 로직 및 API 통신
 │   ├── auth_service.dart     # 인증 서비스
