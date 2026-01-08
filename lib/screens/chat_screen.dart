@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../models/game_types.dart';
+import '../services/auth_service.dart';
+import '../services/chat_service.dart';
 
 class ChatMessage {
   final String id;
@@ -18,12 +22,16 @@ class ChatMessage {
 }
 
 class ChatScreen extends StatefulWidget {
+  final String roomId;
+  final TeamRole userRole;
   final String title;
   final bool isTeamChat;
-  final Color? themeColor; // 테마 색상 추가
+  final Color? themeColor;
 
   const ChatScreen({
     super.key,
+    required this.roomId,
+    required this.userRole,
     required this.title,
     this.isTeamChat = false,
     this.themeColor,
@@ -41,55 +49,64 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // ... (init state logic remains same)
-    _messages.addAll([
-      ChatMessage(
-        id: '1',
-        sender: '플레이어1',
-        content: '안녕하세요!',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-      ),
-      ChatMessage(
-        id: '2',
-        sender: '나',
-        content: '반갑습니다~',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 4)),
-        isMe: true,
-      ),
-      ChatMessage(
-        id: '3',
-        sender: '플레이어2',
-        content: '게임 시작하면 동쪽으로 가요',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
-      ),
-    ]);
+    // In a real app, we would load previous messages here or subscribe to a stream.
+    // For now, we only support sending via API.
+    // _messages.addAll([...]);
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      _messages.add(
-        ChatMessage(
-          id: DateTime.now().toString(),
-          sender: '나',
-          content: text,
-          timestamp: DateTime.now(),
-          isMe: true,
-        ),
-      );
-    });
+    final authService = context.read<AuthService>();
+    final chatService = context.read<ChatService>();
+    final uid = authService.currentUser?.uid;
 
-    _messageController.clear();
+    if (uid == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
+      return;
+    }
 
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+    try {
+      await chatService.sendMessage(
+        roomId: widget.roomId,
+        userId: uid,
+        message: text,
+        team: widget.isTeamChat
+            ? (widget.userRole == TeamRole.police ? 'police' : 'thief')
+            : 'all',
       );
-    });
+
+      setState(() {
+        _messages.add(
+          ChatMessage(
+            id: DateTime.now().toString(),
+            sender:
+                authService.currentUser?.nickname ??
+                '나', // Use real nickname if available
+            content: text,
+            timestamp: DateTime.now(),
+            isMe: true,
+          ),
+        );
+      });
+
+      _messageController.clear();
+
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('메시지 전송 실패: $e')));
+    }
   }
 
   @override

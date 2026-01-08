@@ -1,6 +1,6 @@
 # Environment variables (민감한 정보 포함)
 .env
-
+.doc/
 # Miscellaneous
 *.class
 *.log

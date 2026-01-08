@@ -6,11 +6,22 @@ import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
 import 'in_jail_screen.dart';
 import 'game_result_screen.dart';
+import '../models/game_types.dart';
+import '../models/room_model.dart';
 
 class MoveToJailScreen extends StatefulWidget {
   final LatLng jailPosition;
+  final String roomId;
+  final TeamRole role;
+  final GameSettings settings;
 
-  const MoveToJailScreen({super.key, required this.jailPosition});
+  const MoveToJailScreen({
+    super.key,
+    required this.jailPosition,
+    required this.roomId,
+    required this.role,
+    required this.settings,
+  });
 
   @override
   State<MoveToJailScreen> createState() => _MoveToJailScreenState();
@@ -216,8 +227,11 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const InJailScreen(
+                            builder: (_) => InJailScreen(
                               gameName: '경찰과 도둑',
+                              roomId: widget.roomId,
+                              role: widget.role,
+                              settings: widget.settings, // Passing settings
                             ), // TODO: 실제 게임 이름 전달
                           ),
                         );

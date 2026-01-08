@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import '../config/env_config.dart';
+import 'auth_service.dart';
 import '../models/live_status_model.dart';
 import '../models/location_model.dart';
 import '../models/game_types.dart';
@@ -28,7 +30,9 @@ abstract class GamePlayService {
 }
 
 class HttpGamePlayService implements GamePlayService {
-  static const String _baseUrl = 'https://cops-and-robbers-58c98.web.app';
+  final AuthService? authService;
+
+  HttpGamePlayService({this.authService});
 
   // Polling for live status
   final Map<String, Timer> _pollTimers = {};
@@ -44,17 +48,46 @@ class HttpGamePlayService implements GamePlayService {
     return _controllers[roomId]!;
   }
 
+  Future<void> sendPing(String roomId, String uid) async {
+    try {
+      await http.post(
+        Uri.parse('${EnvConfig.apiUrl}/game/$roomId/ping'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"user_id": uid}),
+      );
+    } catch (e) {
+      print('Ping failed: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> checkGameStatus(String roomId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${EnvConfig.apiUrl}/game/$roomId/status'),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print('Check game status failed: $e');
+    }
+    return null;
+  }
+
   void _startPolling(String roomId) {
     if (_pollTimers.containsKey(roomId)) return;
 
     _fetchPlayersLocation(roomId);
 
-    // Poll frequently for game status (e.g. 1 second or 2 seconds)
-    // API docs: "Update GPS" response logic mentions warning logs but not rate limit.
-    // "Connection Ping" is 10s.
-    // Location fetching should be reasonable.
     _pollTimers[roomId] = Timer.periodic(const Duration(seconds: 1), (_) {
       _fetchPlayersLocation(roomId);
+      // Also ping periodically if we knew the user ID here easily,
+      // but typically UI calls ping or we do it here if we have authService.
+      final uid = authService?.currentUser?.uid;
+      if (uid != null) {
+        sendPing(roomId, uid);
+        // Optionally check game status here too
+      }
     });
   }
 
@@ -65,22 +98,10 @@ class HttpGamePlayService implements GamePlayService {
 
   Future<void> _fetchPlayersLocation(String roomId) async {
     try {
-      // 8. Get Players Location
-      // Endpoint: GET /location/<roomId>/players?requesting_user_id=...
-      // We need a user_id. We might need to store my user_id somewhere or pass it.
-      // Since getLiveStatusesStream doesn't take uid, we have a problem.
-      // We might need to rely on the fact that we can pass a dummy or keep track of current user.
-      // For now, let's assume we can fetch without it OR we need to refactor interface.
-      // However, sticking to interface: we'll use a placeholder or modify if critical.
-      // Actually, the API says "Note: Team visibility policy filters players".
-      // If we don't pass `requesting_user_id`, we might get nothing or error.
-      // Use a placeholder or "system" if allowed, but likely we need the logged-in user.
-      // Since `GamePlayService` is usually used where we know the user, maybe we should've injected Auth?
-      // For now, I'll pass 'guest' or 'spectator' if possible, or try to avoid error.
-
+      final uid = authService?.currentUser?.uid ?? 'spectator';
       final response = await http.get(
         Uri.parse(
-          '$_baseUrl/location/$roomId/players?requesting_user_id=spectator',
+          '${EnvConfig.apiUrl}/location/$roomId/players?requesting_user_id=$uid',
         ),
       );
 
@@ -102,7 +123,7 @@ class HttpGamePlayService implements GamePlayService {
             ),
             state: (state['is_captured'] == true)
                 ? PlayerState.captured
-                : PlayerState.normal, // Simple mapping
+                : PlayerState.normal,
             lastPing: DateTime.now(),
           );
         }).toList();
@@ -122,10 +143,9 @@ class HttpGamePlayService implements GamePlayService {
     String uid,
     LatLng position,
   ) async {
-    // 7. Update GPS
     try {
       await http.post(
-        Uri.parse('$_baseUrl/location/$roomId/update'),
+        Uri.parse('${EnvConfig.apiUrl}/location/$roomId/update'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           "user_id": uid,
@@ -135,7 +155,6 @@ class HttpGamePlayService implements GamePlayService {
         }),
       );
     } catch (e) {
-      // Fail silently or log
       print('Failed to update location: $e');
     }
   }
@@ -151,10 +170,9 @@ class HttpGamePlayService implements GamePlayService {
     required String policeId,
     required String targetThiefId,
   }) async {
-    // 10. Capture Thief
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/game/$roomId/capture'),
+        Uri.parse('${EnvConfig.apiUrl}/game/$roomId/capture'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({"police_id": policeId, "thief_id": targetThiefId}),
       );
@@ -171,15 +189,14 @@ class HttpGamePlayService implements GamePlayService {
     required String rescuerId,
     required String targetThiefId,
   }) async {
-    // 11. Release Thief
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/game/$roomId/release'),
+        Uri.parse('${EnvConfig.apiUrl}/game/$roomId/release'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           "thief_id": rescuerId,
           "captured_thief_id": targetThiefId,
-          "duration_sec": 5, // Hardcoded requirement from mock/UI interaction
+          "duration_sec": 5,
         }),
       );
 
@@ -195,10 +212,9 @@ class HttpGamePlayService implements GamePlayService {
     required String uid,
     required LatLng position,
   }) async {
-    // 9. Check Boundary
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/location/$roomId/check-boundary'),
+        Uri.parse('${EnvConfig.apiUrl}/location/$roomId/check-boundary'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           "user_id": uid,

@@ -3,13 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
+import '../models/room_model.dart'; // For GameSettings
 import '../widgets/flutter_map_widget.dart';
 import 'game_result_screen.dart';
 
 class SpectatorScreen extends StatefulWidget {
   final String gameName;
+  final GameSettings settings;
 
-  const SpectatorScreen({super.key, required this.gameName});
+  const SpectatorScreen({
+    super.key,
+    required this.gameName,
+    required this.settings,
+  });
 
   @override
   State<SpectatorScreen> createState() => _SpectatorScreenState();
@@ -221,8 +227,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   Widget _buildMapArea() {
     return FlutterMapWidget(
       initialPosition: _currentPosition,
-      overlayCenter: const LatLng(37.5665, 126.9780), // 고정된 게임 영역 (임시)
-      circleRadius: 300, // 임시
+      overlayCenter: widget.settings.center,
+      circleRadius: widget.settings.areaRadius.toDouble(),
       showCircleOverlay: true,
       showMyLocation: true, // 관전자 위치 표시
       playerMarkers: _dummyMarkers,

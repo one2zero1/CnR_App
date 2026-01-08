@@ -106,20 +106,22 @@ class GameSettings {
   });
 
   factory GameSettings.fromMap(Map<String, dynamic> data) {
+    print('DEBUG: GameSettings.fromMap data: $data'); // Debug Log
     // Try to read flat first (API style), then nested (legacy/DB style)
     final boundary = data['activity_boundary'] ?? {};
-    final jailData = data['jail_location'] ?? {};
+    final prisonData = data['prison_location'] ?? data['jail_location'] ?? {};
 
     return GameSettings(
       timeLimit: data['game_duration_sec'] ?? 600,
-      areaRadius: data['radius_meter'] ?? boundary['radius_meter'] ?? 300,
+      areaRadius: (data['radius_meter'] ?? boundary['radius_meter'] ?? 300)
+          .toInt(),
       center: LatLng(
         (data['center_lat'] ?? boundary['center_lat'] ?? 37.5665).toDouble(),
-        (data['center_lng'] ?? boundary['center_lng'] ?? 126.9780).toDouble(),
+        (data['center_lng'] ?? boundary['center_lng'] ?? 126.9781).toDouble(),
       ),
       jail: LatLng(
-        (data['prison_lat'] ?? jailData['lat'] ?? 37.5665).toDouble(),
-        (data['prison_lng'] ?? jailData['lng'] ?? 126.9780).toDouble(),
+        (data['prison_lat'] ?? prisonData['lat'] ?? 37.5665).toDouble(),
+        (data['prison_lng'] ?? prisonData['lng'] ?? 126.9780).toDouble(),
       ),
       roleMethod: RoleAssignmentMethod.values.firstWhere(
         (e) => e.name == (data['role_method'] ?? 'manual'),
@@ -131,17 +133,28 @@ class GameSettings {
   Map<String, dynamic> toJson() {
     return {
       'game_duration_sec': timeLimit,
-      'radius_meter': areaRadius,
+      'role_assignment_mode': roleMethod.name, // Changed from role_method
       'center_lat': center.latitude,
       'center_lng': center.longitude,
+      'radius_meter': areaRadius,
       'prison_lat': jail.latitude,
       'prison_lng': jail.longitude,
-      'role_method': roleMethod.name,
-      // Add default location policy data if needed by API
-      'location_policy': {
-        'reveal_mode': 'always',
-        'police_can_see_thieves': true,
-        'thieves_can_see_police': false,
+      'prison_radius_meter': 20, // Default
+      'alert_on_exit': true, // Default
+      'reveal_mode': 'always', // Default
+      'is_gps_high_accuracy': true, // Default
+      'police_can_see_thieves': true, // Default
+      'thieves_can_see_police': false, // Default
+      'capture_distance_meter': 5, // Default
+      'require_button_press': true, // Default
+      'capture_cooldown_sec': 3, // Default
+      'release_distance_meter': 10, // Default
+      'release_duration_sec': 5, // Default
+      'interruptible': true, // Default
+      'interrupt_distance_meter': 15, // Default
+      'convenience_features': {
+        'chat_enabled': true, // Enabled by default for now
+        'voice_channel_id': null,
       },
     };
   }

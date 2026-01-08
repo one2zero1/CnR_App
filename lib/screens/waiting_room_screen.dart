@@ -9,6 +9,7 @@ import '../models/game_types.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
 import '../services/room_service.dart';
+import '../services/authority_service.dart';
 
 class WaitingRoomScreen extends StatefulWidget {
   final String roomId; // 실제 Room UUID (API 통신용)
@@ -182,6 +183,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   role: room.participants[_myId]?.team ?? TeamRole.unassigned,
                   gameName: widget.gameName,
                   roomId: room.roomId,
+                  settings: room.settings, // Pass settings
                 ),
               ),
             );
@@ -292,7 +294,12 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                     },
                   ),
                 ),
-                _buildBottomArea(amIHost, iAmReady, room),
+                _buildBottomArea(
+                  amIHost,
+                  iAmReady,
+                  room,
+                  myPlayer?.team ?? TeamRole.unassigned,
+                ),
               ],
             ),
           ),
@@ -444,7 +451,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     final isPolice = player.role == TeamRole.police;
     final roleColor = isPolice ? AppColors.police : AppColors.thief;
 
-    return Container(
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: theme.cardTheme.color, // Use theme card color
@@ -565,6 +572,101 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         ),
       ),
     );
+    // If host and not self, wrap with GestureDetector for options
+    if (amIHost && !isMe) {
+      return GestureDetector(
+        onLongPress: () =>
+            _showHostOptions(player.id, player.nickname, room.roomId),
+        child: card,
+      );
+    }
+    return card;
+  }
+
+  void _showHostOptions(String targetId, String nickname, String roomId) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(
+              '$nickname 관리',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz, color: Colors.blue),
+            title: const Text('역할 강제 변경'),
+            onTap: () {
+              Navigator.pop(context);
+              _showRoleChangeDialog(targetId, roomId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.remove_circle_outline, color: Colors.red),
+            title: const Text('강제 퇴장'),
+            onTap: () {
+              Navigator.pop(context);
+              _kickUser(targetId, roomId);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _kickUser(String targetId, String roomId) async {
+    try {
+      await context.read<AuthorityService>().kickUser(roomId, _myId!, targetId);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('사용자를 강제 퇴장시켰습니다.')));
+    } catch (e) {
+      _showError('강퇴 실패: $e');
+    }
+  }
+
+  void _showRoleChangeDialog(String targetId, String roomId) {
+    showDialog(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('역할 선택'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(context);
+              _forceRoleChange(targetId, roomId, 'police');
+            },
+            child: const Text('경찰'),
+          ),
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(context);
+              _forceRoleChange(targetId, roomId, 'thief');
+            },
+            child: const Text('도둑'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _forceRoleChange(
+    String targetId,
+    String roomId,
+    String newRole,
+  ) async {
+    try {
+      await context.read<AuthorityService>().forceChangeRole(
+        roomId,
+        _myId!,
+        targetId,
+        newRole,
+      );
+    } catch (e) {
+      _showError('역할 변경 실패: $e');
+    }
   }
 
   bool _canModifyRole(PlayerUIModel player, bool isMe, bool amIHost) {
@@ -678,7 +780,12 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     );
   }
 
-  Widget _buildBottomArea(bool amIHost, bool iAmReady, RoomModel room) {
+  Widget _buildBottomArea(
+    bool amIHost,
+    bool iAmReady,
+    RoomModel room,
+    TeamRole myRole,
+  ) {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
@@ -701,7 +808,12 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ChatScreen(title: '전체 채팅', isTeamChat: false),
+                  builder: (_) => ChatScreen(
+                    title: '전체 채팅',
+                    isTeamChat: false,
+                    roomId: widget.roomId,
+                    userRole: myRole,
+                  ),
                 ),
               );
             },

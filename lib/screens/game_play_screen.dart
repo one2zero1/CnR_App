@@ -8,6 +8,7 @@ import '../widgets/flutter_map_widget.dart';
 import 'chat_screen.dart';
 import 'spectator_screen.dart';
 import '../models/game_types.dart';
+import '../models/room_model.dart'; // For GameSettings
 import '../models/live_status_model.dart';
 import 'move_to_jail_screen.dart';
 import '../services/game_play_service.dart';
@@ -16,13 +17,15 @@ import '../services/auth_service.dart';
 class GamePlayScreen extends StatefulWidget {
   final TeamRole role;
   final String gameName;
-  final String roomId; // Added roomId
+  final String roomId;
+  final GameSettings settings;
 
   const GamePlayScreen({
     super.key,
     required this.role,
     required this.gameName,
     required this.roomId,
+    required this.settings,
   });
 
   @override
@@ -30,7 +33,7 @@ class GamePlayScreen extends StatefulWidget {
 }
 
 class _GamePlayScreenState extends State<GamePlayScreen> {
-  int _remainingSeconds = 600; // 10분
+  int _remainingSeconds = 600; // Will be init in initState
   int _nextRevealSeconds = 180; // 3분
   bool _showingLocationAlert = false;
   bool _showingExitWarning = false; // 뒤로가기 경고 상태
@@ -56,6 +59,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     final gamePlayService = context.read<GamePlayService>();
 
     _statusStream = gamePlayService.getLiveStatusesStream(widget.roomId);
+
+    _remainingSeconds = widget.settings.timeLimit; // Init time limit
     _startTimer();
     _startLocationUpdates();
   }
@@ -243,6 +248,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             context,
             MaterialPageRoute(
               builder: (_) => ChatScreen(
+                roomId: widget.roomId,
+                userRole: widget.role,
                 title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
                 isTeamChat: true,
                 themeColor: isThief ? AppColors.thief : AppColors.police,
@@ -393,15 +400,9 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
         return FlutterMapWidget(
           initialPosition: _currentPosition,
-          overlayCenter: const LatLng(
-            37.5665,
-            126.9780,
-          ), // TODO: Get from GameSettings via API or passed arg
-          jailPosition: const LatLng(
-            37.5668,
-            126.9782,
-          ), // TODO: Get from GameSettings
-          circleRadius: 300, // TODO: Get from GameSettings
+          overlayCenter: widget.settings.center,
+          jailPosition: widget.settings.jail,
+          circleRadius: widget.settings.areaRadius.toDouble(),
           showCircleOverlay: true,
           showMyLocation: true,
           playerMarkers: markers,
@@ -620,11 +621,11 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const MoveToJailScreen(
-                    jailPosition: LatLng(
-                      37.5668,
-                      126.9782,
-                    ), // TODO: 실제 감옥 위치 사용
+                  builder: (_) => MoveToJailScreen(
+                    jailPosition: widget.settings.jail,
+                    roomId: widget.roomId,
+                    role: widget.role,
+                    settings: widget.settings, // Passing settings
                   ),
                 ),
               );
@@ -654,7 +655,10 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => SpectatorScreen(gameName: widget.gameName),
+                  builder: (_) => SpectatorScreen(
+                    gameName: widget.gameName,
+                    settings: widget.settings, // Pass settings
+                  ),
                 ),
               );
             },
@@ -788,7 +792,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 }
 
 class CaughtScreen extends StatelessWidget {
-  const CaughtScreen({super.key});
+  final GameSettings settings;
+  const CaughtScreen({super.key, required this.settings});
 
   @override
   Widget build(BuildContext context) {
@@ -874,8 +879,10 @@ class CaughtScreen extends StatelessWidget {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                const SpectatorScreen(gameName: '게임'),
+                            builder: (_) => SpectatorScreen(
+                              gameName: '게임',
+                              settings: settings, // Pass settings
+                            ),
                           ),
                         );
                       },

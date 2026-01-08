@@ -1,14 +1,25 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../models/room_model.dart'; // For GameSettings
 import 'chat_screen.dart';
 import 'spectator_screen.dart';
 import 'game_result_screen.dart';
+import '../models/game_types.dart';
 
 class InJailScreen extends StatefulWidget {
   final String gameName;
+  final String roomId;
+  final TeamRole role;
+  final GameSettings settings;
 
-  const InJailScreen({super.key, required this.gameName});
+  const InJailScreen({
+    super.key,
+    required this.gameName,
+    required this.roomId,
+    required this.role,
+    required this.settings,
+  });
 
   @override
   State<InJailScreen> createState() => _InJailScreenState();
@@ -152,8 +163,10 @@ class _InJailScreenState extends State<InJailScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  SpectatorScreen(gameName: widget.gameName),
+                              builder: (_) => SpectatorScreen(
+                                gameName: widget.gameName,
+                                settings: widget.settings, // Pass settings
+                              ),
                             ),
                           );
                         },
@@ -173,8 +186,12 @@ class _InJailScreenState extends State<InJailScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  ChatScreen(title: '팀 채팅', isTeamChat: true),
+                              builder: (_) => ChatScreen(
+                                title: '팀 채팅',
+                                isTeamChat: true,
+                                roomId: widget.roomId,
+                                userRole: widget.role,
+                              ),
                             ),
                           );
                         },
