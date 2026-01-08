@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
+import '../services/room_service.dart';
 import 'waiting_room_screen.dart';
 
 class JoinRoomScreen extends StatefulWidget {
@@ -12,65 +16,100 @@ class JoinRoomScreen extends StatefulWidget {
 
 class _JoinRoomScreenState extends State<JoinRoomScreen> {
   final TextEditingController _codeController = TextEditingController();
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
-  final List<TextEditingController> _digitControllers =
-      List.generate(6, (_) => TextEditingController());
+  final FocusNode _focusNode = FocusNode();
 
-  String get _roomCode =>
-      _digitControllers.map((c) => c.text).join();
-
+  String get _roomCode => _codeController.text;
   bool get _isCodeComplete => _roomCode.length == 6;
 
   @override
   void dispose() {
     _codeController.dispose();
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
-    for (var controller in _digitControllers) {
-      controller.dispose();
-    }
+    _focusNode.dispose();
     super.dispose();
   }
 
-  void _onDigitChanged(int index, String value) {
-    if (value.isNotEmpty && index < 5) {
-      _focusNodes[index + 1].requestFocus();
-    }
-    setState(() {});
-  }
+  bool _isLoading = false;
 
-  void _onKeyPressed(int index, KeyEvent event) {
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace &&
-        _digitControllers[index].text.isEmpty &&
-        index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
-  }
-
-  void _joinRoom() {
+  Future<void> _joinRoom() async {
     if (_isCodeComplete) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => WaitingRoomScreen(
-            roomCode: _roomCode,
-            isHost: false,
-            gameName: '게임 방',
+      setState(() => _isLoading = true);
+      try {
+        final authService = context.read<AuthService>();
+        final roomService = context.read<RoomService>();
+
+        var user = authService.currentUser;
+        if (user == null) {
+          user = await authService.signInAnonymously(
+            'Guest_${DateTime.now().second}',
+          );
+        }
+
+        final roomId = await roomService.joinRoom(
+          pinCode: _roomCode,
+          user: user,
+        );
+
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WaitingRoomScreen(
+              roomId: roomId,
+              roomCode: _roomCode,
+              isHost: false,
+              gameName: '참가한 방',
+            ),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('방 참가 실패: $e')));
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _scanQR() async {
+    final String? code = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('QR 코드 스캔')),
+          body: MobileScanner(
+            controller: MobileScannerController(
+              detectionSpeed: DetectionSpeed.noDuplicates,
+              formats: [BarcodeFormat.qrCode],
+            ),
+            onDetect: (capture) {
+              final List<Barcode> barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                if (barcode.rawValue != null) {
+                  Navigator.pop(context, barcode.rawValue);
+                  break;
+                }
+              }
+            },
           ),
         ),
-      );
-    }
-  }
-
-  void _scanQR() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('QR 스캐너 기능은 추후 구현 예정입니다'),
-        duration: Duration(seconds: 2),
       ),
     );
+
+    if (code != null) {
+      final cleanCode = code.trim();
+      if (cleanCode.length == 6) {
+        _codeController.text = cleanCode;
+        setState(() {});
+        _joinRoom();
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('유효하지 않은 QR 코드입니다: $cleanCode')));
+      }
+    }
   }
 
   @override
@@ -89,11 +128,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 32),
-            const Icon(
-              Icons.vpn_key,
-              size: 64,
-              color: AppColors.primary,
-            ),
+            const Icon(Icons.vpn_key, size: 64, color: AppColors.primary),
             const SizedBox(height: 24),
             const Text(
               '방 코드 입력',
@@ -108,59 +143,77 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
             const Text(
               '6자리 방 코드를 입력하세요',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 48),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(6, (index) {
-                return SizedBox(
-                  width: 48,
-                  child: KeyboardListener(
-                    focusNode: FocusNode(),
-                    onKeyEvent: (event) => _onKeyPressed(index, event),
-                    child: TextField(
-                      controller: _digitControllers[index],
-                      focusNode: _focusNodes[index],
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.characters,
-                      maxLength: 1,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        filled: true,
-                        fillColor: _digitControllers[index].text.isNotEmpty
-                            ? AppColors.primary.withOpacity(0.1)
-                            : Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: _digitControllers[index].text.isNotEmpty
-                                ? AppColors.primary
-                                : AppColors.textHint,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                      onChanged: (value) => _onDigitChanged(index, value),
-                    ),
+
+            // Hidden TextField + Visible Boxes Pattern
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // Hidden TextField to capture input
+                Opacity(
+                  opacity: 0,
+                  child: TextField(
+                    controller: _codeController,
+                    focusNode: _focusNode,
+                    keyboardType: TextInputType.text,
+                    textCapitalization: TextCapitalization.characters,
+                    maxLength: 6,
+                    onChanged: (value) {
+                      setState(() {});
+                      if (value.length == 6) {
+                        // Optional: Auto-submit or just dismiss keyboard
+                      }
+                    },
                   ),
-                );
-              }),
+                ),
+                // Visible Boxes
+                GestureDetector(
+                  onTap: () => FocusScope.of(context).requestFocus(_focusNode),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: List.generate(6, (index) {
+                      String char = '';
+                      if (index < _codeController.text.length) {
+                        char = _codeController.text[index];
+                      }
+                      bool isFocused = index == _codeController.text.length;
+                      if (_codeController.text.length == 6 && index == 5)
+                        isFocused = true; // Keep last focused if full
+
+                      return Container(
+                        width: 48,
+                        height: 56,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: char.isNotEmpty
+                              ? AppColors.primary.withOpacity(0.1)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isFocused && _focusNode.hasFocus
+                                ? AppColors.primary
+                                : (char.isNotEmpty
+                                      ? AppColors.primary
+                                      : AppColors.textHint),
+                            width: isFocused && _focusNode.hasFocus ? 2 : 1,
+                          ),
+                        ),
+                        child: Text(
+                          char,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
             ),
+
             const SizedBox(height: 48),
             ElevatedButton(
               onPressed: _isCodeComplete ? _joinRoom : null,
@@ -170,10 +223,16 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 disabledBackgroundColor: AppColors.textHint,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: const Text(
-                '참가하기',
-                style: TextStyle(fontSize: 18),
-              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('참가하기', style: TextStyle(fontSize: 18)),
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(

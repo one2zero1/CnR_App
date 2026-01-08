@@ -22,10 +22,19 @@ class RoomModel {
 
   // fromJson 등 구현 필요 (Firebase Realtime DB 구조에 맞게)
   factory RoomModel.fromMap(String id, Map<String, dynamic> data) {
-    final sessionInfo = data['session_info'] ?? {};
+    // API response structure for join/create might be different.
+    // Assuming 'session_info' or direct fields.
+    // If data comes from 'Join Room' response:
+    // { "room_id": "...", "session_info": {...}, "participants": {...} }
+
+    final sessionInfo = data['session_info'] as Map<String, dynamic>? ?? data;
     final participantsData =
         data['participants'] as Map<dynamic, dynamic>? ?? {};
-    final rules = sessionInfo['game_system_rules'] ?? {}; // 구조 수정 필요
+
+    // Check if settings are in session_info or root
+    final settingsMap =
+        sessionInfo['game_system_rules'] as Map<String, dynamic>? ??
+        sessionInfo;
 
     // participants parsing
     final parsedParticipants = <String, ParticipantInfo>{};
@@ -45,10 +54,14 @@ class RoomModel {
         (e) => e.name == (sessionInfo['status'] ?? 'waiting'),
         orElse: () => RoomStatus.waiting,
       ),
-      settings: GameSettings.fromMap(
-        Map<String, dynamic>.from(rules),
-      ), // TODO: 구조 맞추기
-      expiresAt: DateTime.now().add(const Duration(hours: 1)), // 임시
+      settings: GameSettings.fromMap(settingsMap),
+      expiresAt: sessionInfo['expires_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              sessionInfo['expires_at'] is int
+                  ? sessionInfo['expires_at']
+                  : int.parse(sessionInfo['expires_at'].toString()),
+            )
+          : DateTime.now().add(const Duration(hours: 1)),
       participants: parsedParticipants,
     );
   }
@@ -93,20 +106,43 @@ class GameSettings {
   });
 
   factory GameSettings.fromMap(Map<String, dynamic> data) {
+    // Try to read flat first (API style), then nested (legacy/DB style)
     final boundary = data['activity_boundary'] ?? {};
     final jailData = data['jail_location'] ?? {};
+
     return GameSettings(
       timeLimit: data['game_duration_sec'] ?? 600,
-      areaRadius: boundary['radius_meter'] ?? 300,
+      areaRadius: data['radius_meter'] ?? boundary['radius_meter'] ?? 300,
       center: LatLng(
-        boundary['center_lat'] ?? 37.5665,
-        boundary['center_lng'] ?? 126.9780,
+        (data['center_lat'] ?? boundary['center_lat'] ?? 37.5665).toDouble(),
+        (data['center_lng'] ?? boundary['center_lng'] ?? 126.9780).toDouble(),
       ),
-      jail: LatLng(jailData['lat'] ?? 37.5665, jailData['lng'] ?? 126.9780),
+      jail: LatLng(
+        (data['prison_lat'] ?? jailData['lat'] ?? 37.5665).toDouble(),
+        (data['prison_lng'] ?? jailData['lng'] ?? 126.9780).toDouble(),
+      ),
       roleMethod: RoleAssignmentMethod.values.firstWhere(
         (e) => e.name == (data['role_method'] ?? 'manual'),
         orElse: () => RoleAssignmentMethod.manual,
       ),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'game_duration_sec': timeLimit,
+      'radius_meter': areaRadius,
+      'center_lat': center.latitude,
+      'center_lng': center.longitude,
+      'prison_lat': jail.latitude,
+      'prison_lng': jail.longitude,
+      'role_method': roleMethod.name,
+      // Add default location policy data if needed by API
+      'location_policy': {
+        'reveal_mode': 'always',
+        'police_can_see_thieves': true,
+        'thieves_can_see_police': false,
+      },
+    };
   }
 }

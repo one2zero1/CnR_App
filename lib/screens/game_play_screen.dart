@@ -2,18 +2,28 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/flutter_map_widget.dart';
 import 'chat_screen.dart';
 import 'spectator_screen.dart';
 import '../models/game_types.dart';
+import '../models/live_status_model.dart';
 import 'move_to_jail_screen.dart';
+import '../services/game_play_service.dart';
+import '../services/auth_service.dart';
 
 class GamePlayScreen extends StatefulWidget {
   final TeamRole role;
   final String gameName;
+  final String roomId; // Added roomId
 
-  const GamePlayScreen({super.key, required this.role, required this.gameName});
+  const GamePlayScreen({
+    super.key,
+    required this.role,
+    required this.gameName,
+    required this.roomId,
+  });
 
   @override
   State<GamePlayScreen> createState() => _GamePlayScreenState();
@@ -35,10 +45,17 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   // 위치 관련
   LatLng _currentPosition = const LatLng(37.5665, 126.9780);
   StreamSubscription<Position>? _positionStream;
+  Stream<List<LiveStatusModel>>? _statusStream;
+  String? _myId;
 
   @override
   void initState() {
     super.initState();
+    final authService = context.read<AuthService>();
+    _myId = authService.currentUser?.uid;
+    final gamePlayService = context.read<GamePlayService>();
+
+    _statusStream = gamePlayService.getLiveStatusesStream(widget.roomId);
     _startTimer();
     _startLocationUpdates();
   }
@@ -50,7 +67,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   Future<void> _startLocationUpdates() async {
-    // 권한 확인 (area_settings_screen에서 이미 받았겠지만 안전을 위해)
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -58,22 +74,21 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
     if (permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always) {
-      // 초기 위치 한 번 가져오기
       try {
         final position = await Geolocator.getCurrentPosition();
         if (mounted) {
           setState(() {
             _currentPosition = LatLng(position.latitude, position.longitude);
           });
+          _updateServerLocation(_currentPosition);
         }
       } catch (e) {
         debugPrint('초기 위치 가져오기 실패: $e');
       }
 
-      // 위치 스트림 시작
       const locationSettings = LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 2, // 2미터마다 업데이트
+        distanceFilter: 2,
       );
 
       _positionStream =
@@ -81,15 +96,41 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             locationSettings: locationSettings,
           ).listen((Position position) {
             if (mounted) {
-              setState(() {
-                _currentPosition = LatLng(
-                  position.latitude,
-                  position.longitude,
-                );
-              });
-              // TODO: 서버로 내 위치 전송 (Socket.io)
+              final newPos = LatLng(position.latitude, position.longitude);
+              setState(() => _currentPosition = newPos);
+              _updateServerLocation(newPos);
+              _checkBoundary(newPos);
             }
           });
+    }
+  }
+
+  void _updateServerLocation(LatLng pos) {
+    if (_myId == null) return;
+    context.read<GamePlayService>().updateMyLocation(
+      widget.roomId,
+      _myId!,
+      pos,
+    );
+  }
+
+  Future<void> _checkBoundary(LatLng pos) async {
+    if (_myId == null) return;
+    final result = await context.read<GamePlayService>().checkBoundary(
+      roomId: widget.roomId,
+      uid: _myId!,
+      position: pos,
+    );
+    if (result != null && !result.isWithinBoundary && !_showingExitWarning) {
+      // Using 'Exit Warning' logic for Boundary check for now, or add specific alert
+      // _showingExitWarning is for Back Button preventing.
+      // Let's repurpose or add boundary alert.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('경고: 활동 구역을 벗어났습니다!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -334,31 +375,40 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   Widget _buildMapArea(bool isThief) {
-    return FlutterMapWidget(
-      initialPosition: _currentPosition,
-      overlayCenter: const LatLng(37.5665, 126.9780), // 게임 영역 중심 고정
-      jailPosition: const LatLng(37.5668, 126.9782), // 감옥 위치 (테스트)
-      circleRadius: 300,
-      showCircleOverlay: true,
-      showMyLocation: true,
-      playerMarkers: [
-        // 테스트용 더미 데이터
-        PlayerMarkerData(
-          id: '1',
-          nickname: '도둑1',
-          position: const LatLng(37.5670, 126.9785),
-          isPolice: false,
-        ),
-        PlayerMarkerData(
-          id: '2',
-          nickname: '경찰1',
-          position: const LatLng(37.5660, 126.9775),
-          isPolice: true,
-        ),
-      ],
-      onMapTap: (point) {
-        // 지도 터치 시 동작
-        debugPrint('Map tapped at: $point');
+    return StreamBuilder<List<LiveStatusModel>>(
+      stream: _statusStream,
+      builder: (context, snapshot) {
+        final livePlayers = snapshot.data ?? [];
+
+        // Convert to PlayerMarkerData
+        final markers = livePlayers.where((p) => p.uid != _myId).map((p) {
+          return PlayerMarkerData(
+            id: p.uid,
+            nickname:
+                'Player', // TODO: Fetch nicknames? LiveStatusModel doesn't have nickname yet.
+            position: p.position,
+            isPolice: p.role == TeamRole.police,
+          );
+        }).toList();
+
+        return FlutterMapWidget(
+          initialPosition: _currentPosition,
+          overlayCenter: const LatLng(
+            37.5665,
+            126.9780,
+          ), // TODO: Get from GameSettings via API or passed arg
+          jailPosition: const LatLng(
+            37.5668,
+            126.9782,
+          ), // TODO: Get from GameSettings
+          circleRadius: 300, // TODO: Get from GameSettings
+          showCircleOverlay: true,
+          showMyLocation: true,
+          playerMarkers: markers,
+          onMapTap: (point) {
+            debugPrint('Map tapped at: $point');
+          },
+        );
       },
     );
   }

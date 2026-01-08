@@ -1,35 +1,24 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import 'game_play_screen.dart';
 import 'chat_screen.dart';
 import '../models/game_types.dart';
-
-class Player {
-  final String id;
-  final String nickname;
-  TeamRole role;
-  bool isReady;
-  bool isHost;
-
-  Player({
-    required this.id,
-    required this.nickname,
-    this.role = TeamRole.thief,
-    this.isReady = false,
-    this.isHost = false,
-  });
-}
+import '../models/room_model.dart';
+import '../services/auth_service.dart';
+import '../services/room_service.dart';
 
 class WaitingRoomScreen extends StatefulWidget {
-  final String roomCode;
+  final String roomId; // 실제 Room UUID (API 통신용)
+  final String roomCode; // 표시용 PIN Code
   final bool isHost;
   final String gameName;
   final RoleAssignmentMethod roleMethod;
 
   const WaitingRoomScreen({
     super.key,
+    required this.roomId,
     required this.roomCode,
     required this.isHost,
     required this.gameName,
@@ -41,66 +30,101 @@ class WaitingRoomScreen extends StatefulWidget {
 }
 
 class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
-  late List<Player> _players;
-  bool _isReady = false;
-
-  // For random mode
-  int _policeCount = 1;
+  late Stream<RoomModel> _roomStream;
+  String? _myId;
+  final Map<String, TeamRole> _optimisticRoles = {}; // Optimistic UI state
 
   @override
   void initState() {
     super.initState();
-    _players = [
-      Player(
-        id: '1',
-        nickname: '나',
-        role: TeamRole.police,
-        isHost: widget.isHost,
-        isReady: true,
-      ),
-      Player(id: '2', nickname: '플레이어2', role: TeamRole.thief, isReady: true),
-      Player(id: '3', nickname: '플레이어3', role: TeamRole.thief, isReady: false),
-    ];
+    final authService = context.read<AuthService>();
+    final roomService = context.read<RoomService>();
+    _myId = authService.currentUser?.uid;
+    _roomStream = roomService.getRoomStream(widget.roomId); // UUID 사용
   }
 
-  bool get _allReady => _players.every((p) => p.isReady);
-
-  void _toggleReady() {
-    setState(() {
-      _isReady = !_isReady;
-      _players.firstWhere((p) => p.id == '1').isReady = _isReady;
-    });
-  }
-
-  void _startGame() {
-    if (_allReady) {
-      if (widget.roleMethod == RoleAssignmentMethod.random) {
-        final random = math.Random();
-        List<Player> shuffled = List.from(_players)..shuffle(random);
-        for (int i = 0; i < shuffled.length; i++) {
-          shuffled[i].role = i < _policeCount
-              ? TeamRole.police
-              : TeamRole.thief;
-        }
-      }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => GamePlayScreen(
-            role: _players.firstWhere((p) => p.id == '1').role,
-            gameName: widget.gameName,
-          ),
-        ),
+  Future<void> _toggleReady(RoomModel room, bool currentReady) async {
+    if (_myId == null) return;
+    try {
+      await context.read<RoomService>().updateMyStatus(
+        roomId: room.roomId,
+        uid: _myId!,
+        isReady: !currentReady,
       );
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('모든 참가자가 준비를 완료해야 합니다')));
+    } catch (e) {
+      _showError('준비 상태 변경 실패: $e');
     }
   }
 
-  void _showLeaveDialog() {
+  Future<void> _changeRole(RoomModel room, TeamRole newRole) async {
+    if (_myId == null) return;
+
+    // Optimistic Update
+    setState(() {
+      _optimisticRoles[_myId!] = newRole;
+    });
+
+    try {
+      await context.read<RoomService>().updateMyStatus(
+        roomId: room.roomId,
+        uid: _myId!,
+        team: newRole,
+      );
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _optimisticRoles.remove(_myId!);
+      });
+      _showError('팀 변경 실패: $e');
+    } finally {
+      // We don't necessarily need to remove it immediately if we want it to stick until server confirms.
+      // But usually, once server responds, the stream updates.
+      // However, if the stream hasn't updated yet, removing it might cause flicker back to old role.
+      // A common pattern is to keep it in optimistic map until the stream data matches it, or just timeout.
+      // Simpler: Just rely on stream update eventually overwriting it.
+      // But we should clean up eventually.
+      // For now, let's leave it in optimistic map until next stream build checks?
+      // Actually, if we leave it, it might get stuck if server rejects.
+      // Let's clear it after a short delay or just let the stream override?
+      // Stream update will trigger rebuild.
+      // If I don't remove it, it persists.
+      // I'll assume server update is fast enough, but to prevent 'flicker' (Status: Old -> Optimistic -> Old (stream lag) -> New),
+      // we need to hold it. But `updateMyStatus` returns `void`, it doesn't return the new state.
+      // The stream is separate.
+      // Let's keep it for a bit or just 1-2 seconds?
+      // Or better: In `build`, if `stream.role == optimisticRole`, remove from map?
+      // Yes, that's smart.
+    }
+  }
+
+  Future<void> _startGame(RoomModel room) async {
+    if (!widget.isHost) return;
+
+    try {
+      await context.read<RoomService>().startGame(room.roomId);
+    } catch (e) {
+      _showError('게임 시작 실패: $e');
+    }
+  }
+
+  Future<void> _leaveRoom(String roomId) async {
+    if (_myId == null) return;
+    try {
+      await context.read<RoomService>().leaveRoom(roomId, _myId!);
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      _showError('방 나가기 실패: $e');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showLeaveDialog(String roomId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -114,7 +138,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pop(context);
+              _leaveRoom(roomId);
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('나가기'),
@@ -126,52 +150,120 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: Text(widget.gameName),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: const TextStyle(
-          color: Colors.black,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: _showLeaveDialog,
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              // settings
-            },
-            icon: const Icon(Icons.settings, color: Colors.black),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              itemCount: _players.length,
-              itemBuilder: (context, index) {
-                return _buildPlayerCard(_players[index]);
-              },
+    return StreamBuilder<RoomModel>(
+      stream: _roomStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(child: Text('Error: ${snapshot.error}')),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final room = snapshot.data!;
+
+        if (room.status == RoomStatus.playing) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => GamePlayScreen(
+                  role: room.participants[_myId]?.team ?? TeamRole.unassigned,
+                  gameName: widget.gameName,
+                  roomId: room.roomId,
+                ),
+              ),
+            );
+          });
+        }
+
+        final players = room.participants.entries.map((e) {
+          // Check optimistic role
+          var role = e.value.team;
+          if (_optimisticRoles.containsKey(e.key)) {
+            // If stream matches optimistic, we can remove optimistic entry (synced)
+            if (e.value.team == _optimisticRoles[e.key]) {
+              // Post check remove to avoid modifying during build?
+              // Use addPostFrameCallback or just keep it?
+              // It's fine to keep it, it just masks the same value.
+              role = _optimisticRoles[e.key]!;
+            } else {
+              role = _optimisticRoles[e.key]!;
+            }
+          }
+
+          return PlayerUIModel(
+            id: e.key,
+            nickname: e.value.nickname,
+            role: role,
+            isReady: e.value.isReady,
+            isHost: e.key == room.hostId,
+          );
+        }).toList();
+
+        final amIHost = _myId == room.hostId;
+        final myPlayer = room.participants[_myId];
+        final iAmReady = myPlayer?.isReady ?? false;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF5F5F5),
+          appBar: AppBar(
+            title: Text(widget.gameName),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            titleTextStyle: const TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
+            leading: InkWell(
+              onTap: () => _showLeaveDialog(widget.roomId),
+              borderRadius: BorderRadius.circular(50),
+              child: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_back, color: Colors.black),
+              ),
+            ),
+            actions: [
+              IconButton(
+                onPressed: () {
+                  // settings
+                },
+                icon: const Icon(Icons.settings, color: Colors.black),
+              ),
+            ],
           ),
-          if (widget.isHost && widget.roleMethod == RoleAssignmentMethod.random)
-            _buildRandomRoleSettings(),
-          _buildBottomArea(),
-        ],
-      ),
+          body: Column(
+            children: [
+              _buildHeader(room.pinCode, players.length),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  itemCount: players.length,
+                  itemBuilder: (context, index) {
+                    return _buildPlayerCard(players[index], amIHost, room);
+                  },
+                ),
+              ),
+              _buildBottomArea(amIHost, iAmReady, room),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String roomCode, int playerCount) {
     return Container(
       margin: const EdgeInsets.all(24),
       padding: const EdgeInsets.all(24),
@@ -201,7 +293,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                widget.roomCode,
+                roomCode,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 32,
@@ -223,7 +315,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               ),
               const SizedBox(width: 12),
               IconButton(
-                onPressed: _showQRCodeDialog,
+                onPressed: () => _showQRCodeDialog(roomCode),
                 icon: const Icon(Icons.qr_code_2, color: Colors.white),
                 tooltip: 'QR 코드 보기',
                 style: IconButton.styleFrom(
@@ -246,7 +338,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 const Icon(Icons.person, color: Colors.white, size: 16),
                 const SizedBox(width: 4),
                 Text(
-                  '현재 인원 ${_players.length}/8명',
+                  '현재 인원 $playerCount/8명',
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ],
@@ -257,7 +349,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     );
   }
 
-  void _showQRCodeDialog() {
+  void _showQRCodeDialog(String code) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -273,14 +365,14 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               ),
               const SizedBox(height: 24),
               QrImageView(
-                data: widget.roomCode,
+                data: code,
                 version: QrVersions.auto,
                 size: 200.0,
                 backgroundColor: Colors.white,
               ),
               const SizedBox(height: 24),
               Text(
-                '코드: ${widget.roomCode}',
+                '코드: $code',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -308,8 +400,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     );
   }
 
-  Widget _buildPlayerCard(Player player) {
-    final isMe = player.id == '1';
+  Widget _buildPlayerCard(PlayerUIModel player, bool amIHost, RoomModel room) {
+    final isMe = player.id == _myId;
     final isPolice = player.role == TeamRole.police;
     final roleColor = isPolice ? AppColors.police : AppColors.thief;
 
@@ -421,34 +513,24 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 ],
               ),
             ),
-            if (_canModifyRole(player, isMe))
-              _buildRoleToggle(player)
+            if (_canModifyRole(player, isMe, amIHost))
+              _buildRoleToggle(player, room)
             else
               _buildRoleDisplay(player),
-            if (widget.isHost && !isMe)
-              IconButton(
-                onPressed: () => _kickPlayer(player),
-                icon: const Icon(
-                  Icons.remove_circle_outline,
-                  color: AppColors.danger,
-                ),
-              ),
           ],
         ),
       ),
     );
   }
 
-  bool _canModifyRole(Player player, bool isMe) {
+  bool _canModifyRole(PlayerUIModel player, bool isMe, bool amIHost) {
     if (widget.roleMethod == RoleAssignmentMethod.random) return false;
-    if (widget.roleMethod == RoleAssignmentMethod.manual && isMe) return true;
-    if (widget.roleMethod == RoleAssignmentMethod.host && widget.isHost) {
-      return true;
-    }
+    if (isMe) return true;
+    if (widget.roleMethod == RoleAssignmentMethod.host && amIHost) return true;
     return false;
   }
 
-  Widget _buildRoleToggle(Player player) {
+  Widget _buildRoleToggle(PlayerUIModel player, RoomModel room) {
     final isPolice = player.role == TeamRole.police;
     return Container(
       decoration: BoxDecoration(
@@ -460,7 +542,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
-            onTap: () => setState(() => player.role = TeamRole.police),
+            onTap: () => _changeRole(room, TeamRole.police),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -486,7 +568,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () => setState(() => player.role = TeamRole.thief),
+            onTap: () => _changeRole(room, TeamRole.thief),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -516,7 +598,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     );
   }
 
-  Widget _buildRoleDisplay(Player player) {
+  Widget _buildRoleDisplay(PlayerUIModel player) {
     if (widget.roleMethod == RoleAssignmentMethod.random) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -550,64 +632,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     );
   }
 
-  Widget _buildRandomRoleSettings() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '🕵️ 경찰 인원 설정',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                '$_policeCount명',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-          Slider(
-            value: _policeCount.toDouble(),
-            min: 1,
-            max: math.max(1, _players.length - 1).toDouble(),
-            divisions: math.max(1, _players.length - 2),
-            label: '$_policeCount명',
-            activeColor: AppColors.primary,
-            onChanged: (value) {
-              setState(() {
-                _policeCount = value.toInt();
-              });
-            },
-          ),
-          const Text(
-            '게임 시작 시 무작위로 경찰이 배정됩니다.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomArea() {
+  Widget _buildBottomArea(bool amIHost, bool iAmReady, RoomModel room) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -624,7 +649,6 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Chat Preview Button
           GestureDetector(
             onTap: () {
               Navigator.push(
@@ -649,7 +673,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '플레이어2: 준비됐어요!',
+                      '채팅에 참여하세요',
                       style: TextStyle(color: AppColors.textSecondary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -665,13 +689,14 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Ready/Start Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: widget.isHost ? _startGame : _toggleReady,
+              onPressed: amIHost
+                  ? () => _startGame(room)
+                  : () => _toggleReady(room, iAmReady),
               style: ElevatedButton.styleFrom(
-                backgroundColor: widget.isHost
+                backgroundColor: amIHost
                     ? AppColors.success
                     : AppColors.primary,
                 foregroundColor: Colors.white,
@@ -680,12 +705,11 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 4,
-                shadowColor:
-                    (widget.isHost ? AppColors.success : AppColors.primary)
-                        .withOpacity(0.5),
+                shadowColor: (amIHost ? AppColors.success : AppColors.primary)
+                    .withOpacity(0.5),
               ),
               child: Text(
-                widget.isHost ? '게임 시작' : (_isReady ? '준비 취소' : '준비 완료'),
+                amIHost ? '게임 시작' : (iAmReady ? '준비 취소' : '준비 완료'),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -697,30 +721,20 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       ),
     );
   }
+}
 
-  void _kickPlayer(Player player) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('강퇴'),
-        content: Text('${player.nickname}님을 강퇴하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _players.removeWhere((p) => p.id == player.id);
-              });
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('강퇴'),
-          ),
-        ],
-      ),
-    );
-  }
+class PlayerUIModel {
+  final String id;
+  final String nickname;
+  final TeamRole role;
+  final bool isReady;
+  final bool isHost;
+
+  PlayerUIModel({
+    required this.id,
+    required this.nickname,
+    required this.role,
+    required this.isReady,
+    required this.isHost,
+  });
 }

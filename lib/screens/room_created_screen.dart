@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import '../theme/app_theme.dart';
 import '../models/game_types.dart';
 import 'waiting_room_screen.dart';
 
 class RoomCreatedScreen extends StatelessWidget {
-  final String roomCode;
+  final String roomId; // UUID
+  final String roomCode; // PIN
   final String gameName;
   final int playTime;
   final int locationInterval;
@@ -17,6 +19,7 @@ class RoomCreatedScreen extends StatelessWidget {
 
   const RoomCreatedScreen({
     super.key,
+    required this.roomId,
     required this.roomCode,
     required this.gameName,
     required this.playTime,
@@ -140,6 +143,7 @@ class RoomCreatedScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => WaitingRoomScreen(
+                        roomId: roomId,
                         roomCode: roomCode,
                         isHost: true,
                         gameName: gameName,
@@ -189,10 +193,10 @@ class RoomCreatedScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.qr_code_2,
-                      size: 100,
-                      color: AppColors.textPrimary,
+                    QrImageView(
+                      data: roomCode,
+                      version: QrVersions.auto,
+                      size: 150.0,
                     ),
                     const SizedBox(height: 8),
                     Text(

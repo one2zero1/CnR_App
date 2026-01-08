@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:math';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/game_types.dart';
+import '../models/room_model.dart';
+import '../services/auth_service.dart';
+import '../services/room_service.dart';
 import 'room_created_screen.dart';
 
 class JailSettingsScreen extends StatefulWidget {
@@ -30,6 +33,7 @@ class JailSettingsScreen extends StatefulWidget {
 
 class _JailSettingsScreenState extends State<JailSettingsScreen> {
   LatLng? _jailPosition;
+  bool _isLoading = false;
   final Distance _distance = const Distance();
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
@@ -207,24 +211,64 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
                   ElevatedButton(
                     onPressed: _jailPosition == null
                         ? null
-                        : () {
-                            final roomCode = (100000 + Random().nextInt(900000))
-                                .toString();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => RoomCreatedScreen(
-                                  roomCode: roomCode,
-                                  gameName: widget.gameName,
-                                  playTime: widget.playTime,
-                                  locationInterval: widget.locationInterval,
-                                  roleMethod: widget.roleMethod,
-                                  radius: widget.radius,
-                                  centerPosition: widget.centerPosition,
-                                  jailPosition: _jailPosition!,
+                        : () async {
+                            setState(() => _isLoading = true);
+                            try {
+                              final authService = context.read<AuthService>();
+                              final roomService = context.read<RoomService>();
+
+                              var user = authService.currentUser;
+                              if (user == null) {
+                                user = await authService.signInAnonymously(
+                                  'Host',
+                                );
+                              }
+
+                              final settings = GameSettings(
+                                timeLimit: widget.playTime * 60,
+                                areaRadius: widget.radius,
+                                center: widget.centerPosition,
+                                jail: _jailPosition!,
+                                roleMethod: widget.roleMethod,
+                              );
+
+                              final creationResult = await roomService
+                                  .createRoom(
+                                    hostId: user.uid,
+                                    settings: settings,
+                                  );
+
+                              // Host needs to join the room using the PIN
+                              await roomService.joinRoom(
+                                pinCode: creationResult.pinCode,
+                                user: user,
+                              );
+
+                              if (!mounted) return;
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RoomCreatedScreen(
+                                    roomId: creationResult.roomId,
+                                    roomCode: creationResult.pinCode,
+                                    gameName: widget.gameName,
+                                    playTime: widget.playTime,
+                                    locationInterval: widget.locationInterval,
+                                    roleMethod: widget.roleMethod,
+                                    radius: widget.radius,
+                                    centerPosition: widget.centerPosition,
+                                    jailPosition: _jailPosition!,
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('방 생성 실패: $e')),
+                              );
+                            } finally {
+                              if (mounted) setState(() => _isLoading = false);
+                            }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -234,14 +278,23 @@ class _JailSettingsScreenState extends State<JailSettingsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      '최종 생성',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            '최종 생성',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ],
               ),

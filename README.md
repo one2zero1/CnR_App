@@ -1,83 +1,192 @@
-# 🚓 경도 (Gyeong-Do) - 경찰과 도둑
+# 경찰과 도둑 (Gyeong Do)
 
-**실시간 위치 기반 리얼 술래잡기 모바일 게임**
+현실 기반 실시간 추격 게임, **경찰과 도둑** 모바일 애플리케이션입니다.
+GPS 위치 기반 기술을 활용하여 사용자가 실제 공간에서 경찰과 도둑이 되어 쫓고 쫓기는 스릴 넘치는 게임 경험을 제공합니다.
 
-어린 시절 즐겨하던 '경찰과 도둑' 게임을 스마트폰과 GPS를 활용해 현실 세계에서 더욱 짜릿하게 즐겨보세요!
+---
 
-## 📱 프로젝트 소개
+## 1. 프로젝트 소개
+**경찰과 도둑**은 전통적인 술래잡기 놀이를 모바일 기술과 접목시킨 오프라인+온라인 융합 게임입니다.
+친구들과 방을 만들고, 역할을 정해 실제 지형지물을 이용하며 게임을 즐길 수 있습니다. 
+실시간 위치 공유, 감옥 시스템, 제한 구역 설정 등 다양한 전략적 요소를 포함하고 있습니다.
 
-'경도'는 사용자들이 직접 경찰과 도둑이 되어, 설정된 현실 공간(공원, 학교 등)에서 추격전을 벌이는 게임입니다.
-실시간으로 위치를 공유하고, 채팅과 음성 무전기를 통해 팀원과 전략을 짜며 플레이할 수 있습니다.
+---
 
-## ✨ 주요 기능
+## 2. 주요 기능
 
-*   **실시간 위치 추적**: `flutter_map`과 `geolocator`를 사용하여 내 위치와 팀원의 위치를 지도에 실시간으로 표시합니다.
-*   **게임 모드**:
-    *   **경찰**: 도둑을 찾아 지정된 거리 내에서 체포합니다.
-    *   **도둑**: 제한 시간 동안 경찰을 피해 생존해야 합니다.
-*   **영역 설정**: 호스트가 지도에서 게임 플레이 영역(원형 반경)을 설정합니다. 영역 이탈 시 경고가 발생합니다.
-*   **팀 커뮤니케이션**:
-    *   실시간 텍스트 채팅
-    *   **음성 무전기 (Walkie-Talkie)**: PTT(Push-To-Talk) 방식으로 팀원과 긴밀하게 소통합니다.
-*   **리플레이**: 게임 종료 후 플레이어들의 이동 경로를 다시 볼 수 있습니다.
+### ✅ 구현된 기능
+*   **방 생성 및 관리 (Host)**
+    *   게임 시간(10~60분), 플레이 반경(100m~1km), 위치 공개 주기 설정
+    *   감옥 위치 및 사이즈 설정 (지도 상에서 직접 지정)
+    *   **QR 코드 생성**: 간편한 입장을 위한 방 입장 QR 코드 제공
+*   **방 입장 (Guest)**
+    *   **6자리 PIN 코드** 입력을 통한 입장
+    *   **QR 코드 스캔**: 카메라를 이용해 즉시 입장 가능
+*   **대기실 (Lobby)**
+    *   실시간 참가자 목록 확인 (Polling 방식)
+    *   **역할 분담**: 경찰/도둑 선택 (수동 선택 및 낙관적 UI 적용으로 빠른 반응성 제공)
+    *   준비 완료 및 게임 시작 기능
+*   **게임 플레이 (In-Game)**
+    *   **실시간 위치 추적**: `flutter_map`을 이용한 사용자 위치 표시
+    *   **팀별 가시성 처리**: 경찰은 도둑의 위치를 주기적으로, 도둑은 경찰의 위치를 실시간으로 확인 (설정에 따름)
+    *   **이탈 방지**: 설정된 반경 밖으로 나갈 경우 경고 알림 및 서버 보고
+*   **인증 시스템**
+    *   익명 로그인 (Anonymous Auth) 지원으로 빠른 게임 시작
 
-## 🛠 기술 스택
+### 🚀 구현 예정 기능
+*   **음성 채팅 (무전기)**: 팀원 간 실시간 음성 소통 기능
+*   **아이템 및 상점**: 게임 내 재화 또는 아이템 사용 기능
+*   **백그라운드 위치 서비스**: 앱이 백그라운드에 있어도 위치 공유 유지
+*   **게임 결과 화면**: 승리/패배 및 MVP 선정 화면
+*   **소셜 로그인**: 구글, 카카오 등 소셜 계정 연동
 
-### Frontend
-*   **Framework**: [Flutter](https://flutter.dev/)
-*   **Map**: `flutter_map` (OpenStreetMap 기반), `latlong2`
-*   **Location**: `geolocator`
-*   **State Management**: `provider` (예정), `setState`
-*   **Language**: Dart
+---
 
-### Backend (Planned)
-자세한 내용은 [backend_requirements.md](backend_requirements.md) 문서를 참고하세요.
-*   **Server**: Socket.io / WebSocket
-*   **Voice**: WebRTC (LiveKit / Agora)
-*   **DB**: MongoDB, Redis
+## 3. 기술 스택 (Tech Stack)
 
-## 🚀 시작하기 (Getting Started)
+### 📱 Frontend (Mobile App)
+*   **Framework**: Flutter (Dart)
+*   **State Management**: Provider
+*   **Map & Location**: 
+    *   `flutter_map`: OpenStreetMap 기반 지도 렌더링
+    *   `latlong2`: 위경도 좌표 및 거리 계산
+    *   `geolocator`: 디바이스 GPS 위치 수신
+*   **Network & Async**: 
+    *   `http`: REST API 통신
+    *   Stream/FutureBuilder: 비동기 데이터 처리
+*   **Utility**:
+    *   `mobile_scanner`: QR 코드 스캔 기능
+    *   `qr_flutter`: QR 코드 생성 및 렌더링
+    *   `shared_preferences`: 로컬 설정 저장
 
-### 사전 요구사항
-*   Flutter SDK 설치 완료
-*   Android Studio 또는 VS Code
-*   Android Emulator 또는 실물 기기 (GPS 테스트 권장)
+### 📡 Backend (Interface)
+*   **Protocol**: HTTP REST API
+*   **Format**: JSON
+*   **Polling**: 실시간성을 위한 주기적 상태 조회 (Socket 미사용 환경 대응)
 
-### 설치 및 실행
+---
 
-1. **레포지토리 클론**
-   ```bash
-   git clone https://github.com/your-repo/gyeong-do.git
-   cd gyeong-do
-   ```
+## 4. 프로젝트 구조 (Project Structure)
 
-2. **패키지 설치**
-   ```bash
-   flutter pub get
-   ```
-
-3. **환경 변수 설정**
-   * 프로젝트 루트에 `.env` 파일을 생성하고 필요한 설정을 추가하세요. (현재는 지도 API 키 불필요)
-   ```env
-   # SOCKET_SERVER_URL=http://your-server-ip:3000
-   ```
-
-4. **앱 실행**
-   ```bash
-   flutter run
-   ```
-
-## 📂 프로젝트 구조
-
-```
+```text
 lib/
-├── config/          # 환경 변수 및 설정
-├── screens/         # 화면 UI (GamePlay, Settings 등)
-├── theme/           # 앱 테마 (색상, 폰트)
-├── widgets/         # 재사용 가능한 위젯 (FlutterMapWidget 등)
-└── main.dart        # 앱 진입점
+├── config/             # 앱 전역 설정 (상수, 환경변수 등)
+├── models/             # 데이터 모델 (Json Serialization)
+│   ├── room_model.dart       # 방 정보 및 참가자 모델
+│   ├── user_model.dart       # 사용자 정보 모델
+│   ├── location_model.dart   # 위치 업데이트 및 경계 확인 모델
+│   └── game_types.dart       # Enum 및 공통 타입 정의
+├── providers/          # 상태 관리 (Global State)
+├── screens/            # UI 화면 (Pages)
+│   ├── home_screen.dart        # 메인 홈
+│   ├── jail_settings_screen.dart # 방 생성 및 설정
+│   ├── room_created_screen.dart  # 방 생성 완료 (PIN/QR)
+│   ├── join_room_screen.dart     # 방 입장 (PIN/QR 스캔)
+│   ├── waiting_room_screen.dart  # 대기실 (역할 선택)
+│   └── game_play_screen.dart     # 게임 메인 지도 화면
+├── services/           # 비즈니스 로직 및 API 통신
+│   ├── auth_service.dart     # 인증 서비스
+│   ├── room_service.dart     # 방 관리 API
+│   └── game_play_service.dart# 게임 진행 및 위치 API
+├── theme/              # 디자인 테마 (Colors, Styles)
+└── widgets/            # 재사용 가능한 UI 컴포넌트
 ```
 
-## 📝 라이선스
+---
 
-This project is licensed under the MIT License.
+## 5. 주요 기능 구현 로직 상세
+
+### 1) 방 생성 및 입장 프로세스 (Room Creation & Join)
+*   **패키지**: `http`, `mobile_scanner`, `qr_flutter`
+*   **로직**:
+    *   `RoomService`에서 `http.post`로 방 생성을 요청하고, 반환된 `pin_code`를 `RoomCreationResult` 객체로 관리합니다.
+    *   입장 시 QR 코드는 `mobile_scanner`의 `MobileScannerController`를 통해 스캔되며, 중복 인식을 방지하기 위해 `NoDuplicates` 모드를 사용합니다.
+```dart
+// RoomService: 방 생성 요청
+final response = await http.post(Uri.parse('$baseUrl/rooms/create'), ...);
+return RoomCreationResult(
+  roomId: data['room_id'], // API 통신용 UUID
+  pinCode: data['pin_code'] // 입장용 6자리 PIN
+);
+```
+
+### 2) 대기실 실시간 동기화 (Polling System)
+*   **패키지**: `dart:async` (Timer, StreamController)
+*   **로직**:
+    *   소켓 대신 `Timer.periodic`을 사용하여 2초마다 서버 상태를 조회합니다.
+    *   `StreamController.broadcast`를 사용해 여러 위젯(대기실 확인, 자동 게임 시작 감지 등)에서 동시에 상태를 구독할 수 있게 합니다.
+```dart
+// HttpRoomService: Polling 시작
+_pollTimers[roomId] = Timer.periodic(const Duration(seconds: 2), (_) async {
+  final response = await http.get(Uri.parse('$baseUrl/rooms/$roomId'));
+  if (response.statusCode == 200) {
+    _controller.add(RoomModel.fromMap(data)); // Stream 업데이트
+  }
+});
+```
+*   **낙관적 업데이트 (Optimistic UI)**:
+    *   `WaitingRoomScreen`에서는 `setState`를 통해 로컬의 `_optimisticRoles` 상태를 먼저 변경하여 즉각적인 UI 반응을 제공합니다.
+
+### 3) 핀(PIN) 입력 UX 개선
+*   **핵심 위젯**: `Stack`, `TextField`, `Opacity`
+*   **로직**:
+    *   투명한 `TextField`를 상단에 배치하여 터치 이벤트를 받고, 실제 시각적 표현은 하단의 `Container` 배열(6개)이 담당합니다.
+```dart
+Stack(
+  children: [
+    Opacity(
+      opacity: 0, // 보이지 않지만 입력 가능
+      child: TextField(controller: _codeController, maxLength: 6),
+    ),
+    Row(
+      children: List.generate(6, (index) => _buildDigitBox(index)),
+    ),
+  ],
+)
+```
+
+### 4) 게임 위치 공유 및 경계 확인
+*   **패키지**: `geolocator`, `latlong2`, `flutter_map`
+*   **로직**:
+    *   `Geolocator.getPositionStream` 또는 `Timer`를 통해 위치를 수집하고 서버로 전송합니다.
+    *   `latlong2` 패키지의 `Distance` 클래스를 사용하여 감옥이나 게임 반경과의 거리를 정확하게(미터 단위) 계산합니다.
+```dart
+// GamePlayService: 위치 업데이트 및 반경 체크
+void _startLocationUpdates() {
+  _locationTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+    Position pos = await Geolocator.getCurrentPosition();
+    // 서버로 내 위치 전송
+    await updateMyLocation(roomId, pos.latitude, pos.longitude);
+    // 게임 반경 이탈 확인 API 호출
+    final check = await checkBoundary(roomId, pos);
+    if (!check.isWithin) _showWarning();
+  });
+}
+```
+
+
+---
+
+## 6. 트러블슈팅 (Troubleshooting)
+
+### QR 코드 스캔 정확도 및 중복 인식 문제
+*   **문제 상황**: 
+    1.  `MobileScanner` 기본 설정 사용 시, 카메라가 프레임마다 QR 코드를 인식하여 1초에 수십 번의 중복 이벤트가 발생했습니다.
+    2.  이로 인해 화면 이동(`Navigator.push`)이 여러 번 호출되거나, 잘못된 데이터 처리가 발생하는 문제가 있었습니다.
+    3.  주변의 바코드나 다른 형식을 QR 코드로 오인지하는 경우도 있었습니다.
+*   **해결 방법**: 
+    *   `MobileScannerController`의 설정을 최적화하여 문제를 해결했습니다.
+    *   `detectionSpeed`를 `noDuplicates`로 설정하여 동일한 QR 코드가 연속으로 인식되는 것을 방지했습니다.
+    *   `formats`를 `BarcodeFormat.qrCode`로 제한하여 QR 코드 외의 다른 바코드는 무시하도록 처리했습니다.
+```dart
+MobileScanner(
+  controller: MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates, // 중복 인식 방지 (Cool-down)
+    formats: [BarcodeFormat.qrCode], // QR 코드 포맷만 인식
+  ),
+  onDetect: (capture) { ... }
+)
+```
+
+---
+*Last Updated: 2026-01-08*
