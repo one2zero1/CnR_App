@@ -42,6 +42,17 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     final roomService = context.read<RoomService>();
     _myId = authService.currentUser?.uid;
     _roomStream = roomService.getRoomStream(widget.roomId); // UUID 사용
+
+    // Auto-ready for host
+    if (widget.isHost && _myId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        roomService
+            .updateMyStatus(roomId: widget.roomId, uid: _myId!, isReady: true)
+            .catchError((e) {
+              debugPrint('Failed to auto-ready host: $e');
+            });
+      });
+    }
   }
 
   Future<void> _toggleReady(RoomModel room, bool currentReady) async {
