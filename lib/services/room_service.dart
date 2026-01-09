@@ -15,7 +15,7 @@ class RoomCreationResult {
 abstract class RoomService {
   Future<RoomCreationResult> createRoom({
     required String hostId,
-    required GameSettings settings,
+    required GameSystemRules rules, // Changed from settings
   });
   Future<String> joinRoom({required String pinCode, required UserModel user});
   Stream<RoomModel> getRoomStream(String roomId);
@@ -82,9 +82,51 @@ class HttpRoomService implements RoomService {
   @override
   Future<RoomCreationResult> createRoom({
     required String hostId,
-    required GameSettings settings,
+    required GameSystemRules rules,
   }) async {
-    final body = {"host_id": hostId, ...settings.toJson()};
+    final body = {
+      "host_id": hostId,
+      "game_duration_sec": rules.gameDurationSec,
+      "min_players": rules.minPlayers,
+      "max_players": rules.maxPlayers,
+      "police_count": rules.policeCount,
+      "role_assignment_mode": rules.roleAssignmentMode,
+
+      // Activity Boundary
+      "center_lat": rules.activityBoundary.centerLat,
+      "center_lng": rules.activityBoundary.centerLng,
+      "radius_meter": rules.activityBoundary.radiusMeter,
+      "alert_on_exit": rules.activityBoundary.alertOnExit,
+
+      // Prison Location
+      "prison_lat": rules.prisonLocation.lat,
+      "prison_lng": rules.prisonLocation.lng,
+      "prison_radius_meter": rules.prisonLocation.radiusMeter,
+
+      // Location Policy
+      "reveal_mode": rules.locationPolicy.revealMode,
+      "reveal_interval_sec": rules.locationPolicy.revealIntervalSec,
+      "is_gps_high_accuracy": rules.locationPolicy.isGpsHighAccuracy,
+      "police_can_see_thieves": rules.locationPolicy.policeCanSeeThieves,
+      "thieves_can_see_police": rules.locationPolicy.thievesCanSeePolice,
+
+      // Capture Rules
+      "capture_distance_meter": rules.captureRules.triggerDistanceMeter,
+      "require_button_press": rules.captureRules.requireButtonPress,
+      "capture_cooldown_sec": rules.captureRules.captureCooldownSec,
+
+      // Release Rules
+      "release_distance_meter": rules.releaseRules.triggerDistanceMeter,
+      "release_duration_sec": rules.releaseRules.releaseDurationSec,
+      "interruptible": rules.releaseRules.interruptible,
+      "interrupt_distance_meter": rules.releaseRules.interruptDistanceMeter,
+
+      // Victory conditions are currently hardcoded in backend handler defaults or not fully exposed in flat params yet,
+      // but let's check if we should send them.
+      // Backend handler doesn't seem to read victory conditions from individual fields,
+      // it constructs it with defaults: policeWin: 'all_thieves_captured', thiefWin: 'survive_until_time_ends'.
+      // So we can omit them for now as per the handler code I saw.
+    };
     print(
       "===================================================create ROOM===========================\n $body",
     );
@@ -194,7 +236,7 @@ class HttpRoomService implements RoomService {
     final response = await http.post(
       Uri.parse('${EnvConfig.apiUrl}/rooms/$roomId/start'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({"user_id": room.hostId}),
+      body: jsonEncode({"user_id": room.sessionInfo.hostId}),
     );
 
     if (response.statusCode != 200) {

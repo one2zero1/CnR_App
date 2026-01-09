@@ -27,7 +27,6 @@ class MockAuthService implements AuthService {
     final newUser = UserModel(
       uid: 'user_${DateTime.now().millisecondsSinceEpoch}',
       nickname: nickname,
-      stats: UserStats(),
     );
 
     _currentUser = newUser;

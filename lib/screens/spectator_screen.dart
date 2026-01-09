@@ -9,7 +9,7 @@ import 'game_result_screen.dart';
 
 class SpectatorScreen extends StatefulWidget {
   final String gameName;
-  final GameSettings settings;
+  final GameSystemRules settings;
 
   const SpectatorScreen({
     super.key,
@@ -227,8 +227,11 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   Widget _buildMapArea() {
     return FlutterMapWidget(
       initialPosition: _currentPosition,
-      overlayCenter: widget.settings.center,
-      circleRadius: widget.settings.areaRadius.toDouble(),
+      overlayCenter: LatLng(
+        widget.settings.activityBoundary.centerLat,
+        widget.settings.activityBoundary.centerLng,
+      ),
+      circleRadius: widget.settings.activityBoundary.radiusMeter.toDouble(),
       showCircleOverlay: true,
       showMyLocation: true, // 관전자 위치 표시
       playerMarkers: _dummyMarkers,

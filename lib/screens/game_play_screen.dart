@@ -18,8 +18,7 @@ class GamePlayScreen extends StatefulWidget {
   final TeamRole role;
   final String gameName;
   final String roomId;
-  final GameSettings settings;
-
+  final GameSystemRules settings;
   const GamePlayScreen({
     super.key,
     required this.role,
@@ -60,7 +59,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
     _statusStream = gamePlayService.getLiveStatusesStream(widget.roomId);
 
-    _remainingSeconds = widget.settings.timeLimit; // Init time limit
+    _remainingSeconds = widget.settings.gameDurationSec; // Init time limit
     _startTimer();
     _startLocationUpdates();
   }
@@ -400,9 +399,15 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
         return FlutterMapWidget(
           initialPosition: _currentPosition,
-          overlayCenter: widget.settings.center,
-          jailPosition: widget.settings.jail,
-          circleRadius: widget.settings.areaRadius.toDouble(),
+          overlayCenter: LatLng(
+            widget.settings.activityBoundary.centerLat,
+            widget.settings.activityBoundary.centerLng,
+          ),
+          jailPosition: LatLng(
+            widget.settings.prisonLocation.lat,
+            widget.settings.prisonLocation.lng,
+          ),
+          circleRadius: widget.settings.activityBoundary.radiusMeter.toDouble(),
           showCircleOverlay: true,
           showMyLocation: true,
           playerMarkers: markers,
@@ -622,10 +627,13 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => MoveToJailScreen(
-                    jailPosition: widget.settings.jail,
+                    jailPosition: LatLng(
+                      widget.settings.prisonLocation.lat,
+                      widget.settings.prisonLocation.lng,
+                    ),
                     roomId: widget.roomId,
                     role: widget.role,
-                    settings: widget.settings, // Passing settings
+                    settings: widget.settings, // Passing rules
                   ),
                 ),
               );
@@ -792,7 +800,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 }
 
 class CaughtScreen extends StatelessWidget {
-  final GameSettings settings;
+  final GameSystemRules settings;
   const CaughtScreen({super.key, required this.settings});
 
   @override

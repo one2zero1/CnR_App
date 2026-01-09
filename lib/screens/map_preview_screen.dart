@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../models/room_model.dart';
 import '../theme/app_theme.dart';
 
 class MapPreviewScreen extends StatelessWidget {
-  final GameSettings settings;
+  final GameSystemRules settings;
 
   const MapPreviewScreen({super.key, required this.settings});
 
@@ -21,7 +22,10 @@ class MapPreviewScreen extends StatelessWidget {
       ),
       body: FlutterMap(
         options: MapOptions(
-          initialCenter: settings.center,
+          initialCenter: LatLng(
+            settings.activityBoundary.centerLat,
+            settings.activityBoundary.centerLng,
+          ),
           initialZoom: 16.0,
           interactionOptions: const InteractionOptions(
             flags: InteractiveFlag.all,
@@ -38,8 +42,11 @@ class MapPreviewScreen extends StatelessWidget {
           CircleLayer(
             circles: [
               CircleMarker(
-                point: settings.center,
-                radius: settings.areaRadius.toDouble(),
+                point: LatLng(
+                  settings.activityBoundary.centerLat,
+                  settings.activityBoundary.centerLng,
+                ),
+                radius: settings.activityBoundary.radiusMeter.toDouble(),
                 useRadiusInMeter: true,
                 color: AppColors.primary.withOpacity(0.1),
                 borderColor: AppColors.primary,
@@ -51,7 +58,10 @@ class MapPreviewScreen extends StatelessWidget {
           MarkerLayer(
             markers: [
               Marker(
-                point: settings.jail,
+                point: LatLng(
+                  settings.prisonLocation.lat,
+                  settings.prisonLocation.lng,
+                ),
                 width: 40,
                 height: 40,
                 child: Container(

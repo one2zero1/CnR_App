@@ -74,17 +74,51 @@ class _Step6JailState extends State<Step6Jail> {
         user = await authService.signInAnonymously('Host');
       }
 
-      final settings = GameSettings(
-        timeLimit: widget.playTime * 60,
-        areaRadius: widget.radius,
-        center: widget.centerPosition,
-        jail: widget.initialJailPosition!,
-        roleMethod: widget.roleMethod,
+      final rules = GameSystemRules(
+        gameDurationSec: (widget.playTime * 60).toInt(),
+        minPlayers: 4,
+        maxPlayers: 10,
+        policeCount: 1,
+        roleAssignmentMode: widget.roleMethod.name,
+        activityBoundary: ActivityBoundary(
+          centerLat: widget.centerPosition.latitude,
+          centerLng: widget.centerPosition.longitude,
+          radiusMeter: widget.radius,
+          alertOnExit: true,
+        ),
+        prisonLocation: PrisonLocation(
+          lat: widget.initialJailPosition!.latitude,
+          lng: widget.initialJailPosition!.longitude,
+          radiusMeter: 20,
+        ),
+        locationPolicy: LocationPolicy(
+          revealMode: 'always',
+          isGpsHighAccuracy: true,
+          policeCanSeeThieves: true,
+          thievesCanSeePolice: false,
+          revealIntervalSec: (widget.locationInterval * 60).toInt(),
+        ),
+        captureRules: CaptureRules(
+          triggerDistanceMeter: 3,
+          requireButtonPress: true,
+          captureCooldownSec: 10,
+          validateOnServer: false,
+        ),
+        releaseRules: ReleaseRules(
+          triggerDistanceMeter: 5,
+          releaseDurationSec: 5,
+          interruptible: true,
+          interruptDistanceMeter: 10,
+        ),
+        victoryConditions: VictoryConditions(
+          policeWin: 'all_thieves_captured',
+          thiefWin: 'time_limit',
+        ),
       );
 
       final creationResult = await roomService.createRoom(
         hostId: user.uid,
-        settings: settings,
+        rules: rules,
       );
 
       await roomService.joinRoom(pinCode: creationResult.pinCode, user: user);

@@ -11,7 +11,7 @@ class InJailScreen extends StatefulWidget {
   final String gameName;
   final String roomId;
   final TeamRole role;
-  final GameSettings settings;
+  final GameSystemRules settings;
 
   const InJailScreen({
     super.key,

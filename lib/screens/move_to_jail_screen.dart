@@ -13,7 +13,7 @@ class MoveToJailScreen extends StatefulWidget {
   final LatLng jailPosition;
   final String roomId;
   final TeamRole role;
-  final GameSettings settings;
+  final GameSystemRules settings;
 
   const MoveToJailScreen({
     super.key,

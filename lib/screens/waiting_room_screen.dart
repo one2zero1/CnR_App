@@ -174,16 +174,22 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
 
         final room = snapshot.data!;
 
-        if (room.status == RoomStatus.playing) {
+        if (room.sessionInfo.status == 'playing') {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) => GamePlayScreen(
-                  role: room.participants[_myId]?.team ?? TeamRole.unassigned,
+                  role: TeamRole.values.firstWhere(
+                    (e) =>
+                        e.name ==
+                        (room.participants[_myId]?.team ?? 'unassigned'),
+                    orElse: () => TeamRole.unassigned,
+                  ),
                   gameName: widget.gameName,
                   roomId: room.roomId,
-                  settings: room.settings, // Pass settings
+                  settings:
+                      room.gameSystemRules, // Pass rules instead of settings
                 ),
               ),
             );
@@ -191,29 +197,21 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         }
 
         final players = room.participants.entries.map((e) {
-          // Check optimistic role
-          var role = e.value.team;
-          if (_optimisticRoles.containsKey(e.key)) {
-            // If stream matches optimistic, we can remove optimistic entry
-            if (e.value.team == _optimisticRoles[e.key]) {
-              // Synced
-            } else {
-              role = _optimisticRoles[e.key]!;
-            }
-          }
-
           return PlayerUIModel(
             id: e.key,
             nickname: e.value.nickname,
-            role: role,
-            isReady: e.value.isReady,
-            isHost: e.key == room.hostId,
+            role: TeamRole.values.firstWhere(
+              (r) => r.name == e.value.team,
+              orElse: () => TeamRole.unassigned,
+            ),
+            isReady: e.value.ready,
+            isHost: e.key == room.sessionInfo.hostId,
           );
         }).toList();
 
-        final amIHost = _myId == room.hostId;
+        final amIHost = _myId == room.sessionInfo.hostId;
         final myPlayer = room.participants[_myId];
-        final iAmReady = myPlayer?.isReady ?? false;
+        final iAmReady = myPlayer?.ready ?? false;
 
         final theme = Theme.of(context);
         return PopScope(
@@ -263,7 +261,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) =>
-                              MapPreviewScreen(settings: room.settings),
+                              MapPreviewScreen(settings: room.gameSystemRules),
                         ),
                       );
                     },
@@ -284,7 +282,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             ),
             body: Column(
               children: [
-                _buildHeader(room.pinCode, players.length),
+                _buildHeader(room.sessionInfo.pinCode, players.length),
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -298,7 +296,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   amIHost,
                   iAmReady,
                   room,
-                  myPlayer?.team ?? TeamRole.unassigned,
+                  TeamRole.values.firstWhere(
+                    (e) => e.name == (myPlayer?.team ?? 'unassigned'),
+                    orElse: () => TeamRole.unassigned,
+                  ),
                 ),
               ],
             ),
