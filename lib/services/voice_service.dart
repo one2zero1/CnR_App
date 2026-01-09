@@ -202,6 +202,7 @@ class VoiceService {
         "is_last": isLast,
         "duration_ms": 300,
         "voice_data": base64Encode(data),
+        "timestamp": ServerValue.timestamp,
       };
 
       debugPrint(

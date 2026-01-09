@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/room_model.dart'; // For GameSettings
 import 'chat_screen.dart';
-import 'spectator_screen.dart';
+
 import 'game_result_screen.dart';
 import '../models/game_types.dart';
 
@@ -157,28 +157,6 @@ class _InJailScreenState extends State<InJailScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SpectatorScreen(
-                                gameName: widget.gameName,
-                                settings: widget.settings, // Pass settings
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.visibility),
-                        label: const Text('관전하기'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueGrey,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                      ),
-                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton.icon(

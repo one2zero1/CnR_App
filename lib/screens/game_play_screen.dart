@@ -8,7 +8,7 @@ import '../widgets/flutter_map_widget.dart';
 import 'chat_screen.dart';
 import '../models/chat_model.dart'; // Import Chat Models
 import '../services/chat_service.dart'; // Import Chat Service
-import 'spectator_screen.dart';
+
 import '../models/game_types.dart';
 import '../models/room_model.dart'; // For GameSettings
 import '../models/live_status_model.dart';
@@ -56,6 +56,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   // Voice Chat Overlay State
   String? _speakingNickname;
   Timer? _speakingTimer;
+  late final VoiceService _voiceService;
 
   @override
   void initState() {
@@ -63,15 +64,15 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     final authService = context.read<AuthService>();
     _myId = authService.currentUser?.uid;
     final gamePlayService = context.read<GamePlayService>();
-    final voiceService = context.read<VoiceService>();
+    _voiceService = context.read<VoiceService>();
 
     // Start Voice Listening
-    voiceService.init().then((_) {
-      voiceService.startListening(widget.roomId, widget.role);
+    _voiceService.init().then((_) {
+      _voiceService.startListening(widget.roomId, widget.role);
     });
 
     // Listen to who is talking
-    voiceService.whoIsTalkingStream.listen((nickname) {
+    _voiceService.whoIsTalkingStream.listen((nickname) {
       if (mounted) {
         setState(() {
           _speakingNickname = nickname;
@@ -94,7 +95,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
   @override
   void dispose() {
-    context.read<VoiceService>().stopListening();
+    _voiceService.stopListening();
     _speakingTimer?.cancel();
     _positionStream?.cancel();
     super.dispose();
@@ -762,15 +763,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SpectatorScreen(
-                    gameName: widget.gameName,
-                    settings: widget.settings, // Pass settings
-                  ),
-                ),
-              );
+              Navigator.of(context).popUntil((route) => route.isFirst);
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('예'),
@@ -1036,26 +1029,6 @@ class CaughtScreen extends StatelessWidget {
               const Spacer(),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SpectatorScreen(
-                              gameName: '게임',
-                              settings: settings, // Pass settings
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.visibility),
-                      label: const Text('관전 모드'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
-                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: OutlinedButton.icon(
