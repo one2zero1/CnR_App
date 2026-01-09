@@ -779,7 +779,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor, // Use scaffold bg or card theme
+        color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
@@ -798,10 +798,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => ChatScreen(
-                    title: '전체 채팅',
-                    isTeamChat: false,
                     roomId: widget.roomId,
-                    userRole: myRole,
+                    userRole: TeamRole.unassigned,
+                    title: '대기실 채팅',
+                    isTeamChat: false, // Global only in waiting room
                   ),
                 ),
               );
@@ -861,6 +861,36 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 child: const Text(
                   '게임 시작',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  context.read<RoomService>().updateMyStatus(
+                    roomId: room.roomId,
+                    uid: _myId!,
+                    isReady: !iAmReady,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: iAmReady ? Colors.grey : AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 4,
+                  shadowColor: AppColors.primary.withOpacity(0.3),
+                ),
+                child: Text(
+                  iAmReady ? '준비 취소' : '준비 완료',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),

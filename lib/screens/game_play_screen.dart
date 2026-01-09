@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/flutter_map_widget.dart';
 import 'chat_screen.dart';
+import '../models/chat_model.dart'; // Import Chat Models
+import '../services/chat_service.dart'; // Import Chat Service
 import 'spectator_screen.dart';
 import '../models/game_types.dart';
 import '../models/room_model.dart'; // For GameSettings
@@ -41,7 +43,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   int _myCaptureCount = 0;
 
   // 채팅 관련
-  final List<String> _recentMessages = [];
   final TextEditingController _chatController = TextEditingController();
   bool _isComposing = false;
 
@@ -459,28 +460,80 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   Widget _buildChatOverlay() {
-    if (_recentMessages.isEmpty) return const SizedBox.shrink();
-
     return Container(
-      width: 250,
-      constraints: const BoxConstraints(maxHeight: 150),
-      child: ListView.builder(
-        reverse: true,
-        itemCount: _recentMessages.length,
-        itemBuilder: (context, index) {
-          final message =
-              _recentMessages[_recentMessages.length - 1 - index]; // 최신순 반전
-          return Container(
-            margin: const EdgeInsets.only(top: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
+      width: 280,
+      constraints: const BoxConstraints(maxHeight: 180),
+      child: StreamBuilder<List<ChatMessage>>(
+        stream: context.read<ChatService>().getMessagesStream(widget.roomId),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox.shrink();
+
+          // 최신순으로 정렬된 메시지 가져오기
+          final allMessages = snapshot.data!;
+          // 내 팀에 맞는 메시지만 필터링 (전체 + 내 팀)
+          final filteredMessages = allMessages.where((msg) {
+            if (msg.type == ChatType.global) return true;
+            if (msg.type == ChatType.team && msg.team == widget.role) {
+              return true;
+            }
+            return false;
+          }).toList();
+
+          // 최근 5개만 표시
+          final recentMessages = filteredMessages.length > 5
+              ? filteredMessages.sublist(filteredMessages.length - 5)
+              : filteredMessages;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: recentMessages.map((message) {
+              final isGlobal = message.type == ChatType.global;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: isGlobal ? '[전체] ' : '[팀] ',
+                        style: TextStyle(
+                          color: isGlobal
+                              ? Colors.orangeAccent
+                              : (widget.role == TeamRole.police
+                                    ? AppColors.police
+                                    : AppColors.thief),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '${message.senderName}: ',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextSpan(
+                        text: message.content,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           );
         },
       ),
@@ -489,15 +542,25 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;
+
+    final authService = context.read<AuthService>();
+    final user = authService.currentUser;
+    if (user == null) return;
+
+    // GamePlayScreen에서의 빠른 채팅은 기본적으로 'Team' 채팅으로 전송
+    context.read<ChatService>().sendMessage(
+      roomId: widget.roomId,
+      uid: user.uid,
+      nickname: user.nickname,
+      message: text.trim(),
+      type: ChatType.team,
+      team: widget.role,
+    );
+
     setState(() {
-      _recentMessages.add('나: $text');
-      if (_recentMessages.length > 5) {
-        _recentMessages.removeAt(0); // 최근 5개만 유지
-      }
       _chatController.clear();
       _isComposing = false;
     });
-    // TODO: 실제 채팅 서버 전송 로직 추가
   }
 
   Widget _buildBottomButtons(bool isThief) {
