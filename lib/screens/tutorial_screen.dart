@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'nickname_screen.dart';
+import 'login_screen.dart';
 
 class TutorialScreen extends StatefulWidget {
   const TutorialScreen({super.key});
@@ -47,14 +47,14 @@ class _TutorialScreenState extends State<TutorialScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      _goToNickname();
+      _goToLogin();
     }
   }
 
-  void _goToNickname() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const NicknameScreen()),
-    );
+  void _goToLogin() {
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
   @override
@@ -73,7 +73,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
-                onPressed: _goToNickname,
+                onPressed: _goToLogin,
                 child: const Text(
                   '건너뛰기',
                   style: TextStyle(
@@ -154,11 +154,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
               color: page.color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              page.icon,
-              size: 80,
-              color: page.color,
-            ),
+            child: Icon(page.icon, size: 80, color: page.color),
           ),
           const SizedBox(height: 48),
           Text(

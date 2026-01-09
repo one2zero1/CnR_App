@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'game_settings_screen.dart';
+import 'create_game/room_creation_wizard.dart';
 import 'join_room_screen.dart';
 import 'my_records_screen.dart';
 import 'settings_screen.dart';
@@ -88,7 +88,7 @@ class HomeScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const GameSettingsScreen(),
+                      builder: (_) => const RoomCreationWizard(),
                     ),
                   );
                 },
