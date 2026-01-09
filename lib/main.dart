@@ -5,11 +5,13 @@ import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'screens/splash_screen.dart';
 import 'config/env_config.dart';
+import 'services/voice_service.dart';
 import 'services/auth_service.dart';
 import 'services/room_service.dart';
 import 'services/game_play_service.dart';
 import 'services/authority_service.dart';
 import 'services/chat_service.dart';
+import 'services/voice_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 
@@ -48,6 +50,9 @@ class MyApp extends StatelessWidget {
         ),
         Provider<AuthorityService>(create: (_) => AuthorityService()),
         Provider<ChatService>(create: (_) => ChatService()),
+        ProxyProvider<AuthService, VoiceService>(
+          update: (context, authService, previous) => VoiceService(authService),
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

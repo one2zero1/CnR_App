@@ -13,6 +13,7 @@ import '../models/live_status_model.dart';
 import 'move_to_jail_screen.dart';
 import '../services/game_play_service.dart';
 import '../services/auth_service.dart';
+import '../services/voice_service.dart';
 
 class GamePlayScreen extends StatefulWidget {
   final TeamRole role;
@@ -48,7 +49,12 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   LatLng _currentPosition = const LatLng(37.5665, 126.9780);
   StreamSubscription<Position>? _positionStream;
   Stream<List<LiveStatusModel>>? _statusStream;
+
   String? _myId;
+
+  // Voice Chat Overlay State
+  String? _speakingNickname;
+  Timer? _speakingTimer;
 
   @override
   void initState() {
@@ -56,6 +62,27 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     final authService = context.read<AuthService>();
     _myId = authService.currentUser?.uid;
     final gamePlayService = context.read<GamePlayService>();
+    final voiceService = context.read<VoiceService>();
+
+    // Start Voice Listening
+    voiceService.init().then((_) {
+      voiceService.startListening(widget.roomId, widget.role);
+    });
+
+    // Listen to who is talking
+    voiceService.whoIsTalkingStream.listen((nickname) {
+      if (mounted) {
+        setState(() {
+          _speakingNickname = nickname;
+        });
+        _speakingTimer?.cancel();
+        _speakingTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() => _speakingNickname = null);
+          }
+        });
+      }
+    });
 
     _statusStream = gamePlayService.getLiveStatusesStream(widget.roomId);
 
@@ -66,6 +93,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
   @override
   void dispose() {
+    context.read<VoiceService>().stopListening();
+    _speakingTimer?.cancel();
     _positionStream?.cancel();
     super.dispose();
   }
@@ -237,6 +266,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             if (_showingLocationAlert)
               Positioned.fill(child: _buildLocationAlert()),
             if (_showingExitWarning) _buildExitWarningToast(),
+            if (_speakingNickname != null) _buildVoiceOverlay(),
             if (isThief) _buildCaughtButton(),
             _buildVoiceButton(isThief),
             _buildChatScreenButton(isThief), // 채팅 버튼 분리
@@ -693,16 +723,39 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       right: 16,
       child: Listener(
         onPointerDown: (_) {
+          debugPrint('PTT Button: Down');
           setState(() => _isTalking = true);
-          // TODO: 음성 전송 시작 (WebRTC 연동)
+          context.read<VoiceService>().startRecording(
+            widget.roomId,
+            widget.role,
+          );
         },
         onPointerUp: (_) {
+          debugPrint('PTT Button: Up');
           setState(() => _isTalking = false);
-          // TODO: 음성 전송 종료
+          if (_myId != null) {
+            final user = context.read<AuthService>().currentUser;
+            if (user != null) {
+              context.read<VoiceService>().stopRecording(
+                widget.roomId,
+                user.uid,
+                user.nickname,
+                widget.role,
+              );
+            }
+          }
         },
         onPointerCancel: (_) {
           setState(() => _isTalking = false);
-          // TODO: 음성 전송 종료
+          final user = context.read<AuthService>().currentUser;
+          if (user != null) {
+            context.read<VoiceService>().stopRecording(
+              widget.roomId,
+              user.uid,
+              user.nickname,
+              widget.role,
+            );
+          }
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 100), // 반응 속도 빠르게
@@ -800,8 +853,38 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: const Text(
-          '뒤로 갈 수 없습니다. 종료 버튼을 이용해주세요.',
+          '⚠️ 활동 구역을 벗어나면 경고가 발생합니다!',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceOverlay() {
+    return Positioned(
+      top: 100,
+      right: 16,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.greenAccent, width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.volume_up, color: Colors.greenAccent, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              '$_speakingNickname 무전 중...',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ),
     );
