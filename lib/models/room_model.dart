@@ -20,20 +20,24 @@ class RoomModel {
     return RoomModel(
       roomId: roomId,
       sessionInfo: SessionInfo.fromMap(
-        data['session_info'] as Map<String, dynamic>? ?? {},
+        data['session_info'] != null
+            ? Map<String, dynamic>.from(data['session_info'] as Map)
+            : {},
       ),
       participants: (data['participants'] as Map<dynamic, dynamic>? ?? {}).map(
         (key, value) => MapEntry(
           key.toString(),
-          Participant.fromMap(Map<String, dynamic>.from(value)),
+          Participant.fromMap(Map<String, dynamic>.from(value as Map)),
         ),
       ),
       gameSystemRules: GameSystemRules.fromMap(
-        data['game_system_rules'] as Map<String, dynamic>? ?? {},
+        data['game_system_rules'] != null
+            ? Map<String, dynamic>.from(data['game_system_rules'] as Map)
+            : {},
       ),
       convenienceFeatures: data['convenience_features'] != null
           ? ConvenienceFeatures.fromMap(
-              data['convenience_features'] as Map<String, dynamic>,
+              Map<String, dynamic>.from(data['convenience_features'] as Map),
             )
           : null,
     );
@@ -78,7 +82,9 @@ class SessionInfo {
       ),
       pinCode: data['pin_code'] as String? ?? '',
       forceEnd: data['force_end'] != null
-          ? ForceEnd.fromMap(data['force_end'] as Map<String, dynamic>)
+          ? ForceEnd.fromMap(
+              Map<String, dynamic>.from(data['force_end'] as Map),
+            )
           : null,
     );
   }
@@ -108,9 +114,11 @@ class ForceEnd {
 
   factory ForceEnd.fromMap(Map<String, dynamic> data) {
     return ForceEnd(
-      endedBy: data['ended_by'] as String,
-      endedAt: DateTime.fromMillisecondsSinceEpoch(data['ended_at'] as int),
-      reason: data['reason'] as String,
+      endedBy: data['ended_by'] as String? ?? '',
+      endedAt: DateTime.fromMillisecondsSinceEpoch(
+        data['ended_at'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      ),
+      reason: data['reason'] as String? ?? '',
     );
   }
 
@@ -184,22 +192,34 @@ class GameSystemRules {
       policeCount: data['police_count'] as int? ?? 1,
       roleAssignmentMode: data['role_assignment_mode'] as String? ?? 'host',
       activityBoundary: ActivityBoundary.fromMap(
-        data['activity_boundary'] as Map<String, dynamic>? ?? {},
+        data['activity_boundary'] != null
+            ? Map<String, dynamic>.from(data['activity_boundary'] as Map)
+            : {},
       ),
       prisonLocation: PrisonLocation.fromMap(
-        data['prison_location'] as Map<String, dynamic>? ?? {},
+        data['prison_location'] != null
+            ? Map<String, dynamic>.from(data['prison_location'] as Map)
+            : {},
       ),
       locationPolicy: LocationPolicy.fromMap(
-        data['location_policy'] as Map<String, dynamic>? ?? {},
+        data['location_policy'] != null
+            ? Map<String, dynamic>.from(data['location_policy'] as Map)
+            : {},
       ),
       captureRules: CaptureRules.fromMap(
-        data['capture_rules'] as Map<String, dynamic>? ?? {},
+        data['capture_rules'] != null
+            ? Map<String, dynamic>.from(data['capture_rules'] as Map)
+            : {},
       ),
       releaseRules: ReleaseRules.fromMap(
-        data['release_rules'] as Map<String, dynamic>? ?? {},
+        data['release_rules'] != null
+            ? Map<String, dynamic>.from(data['release_rules'] as Map)
+            : {},
       ),
       victoryConditions: VictoryConditions.fromMap(
-        data['victory_conditions'] as Map<String, dynamic>? ?? {},
+        data['victory_conditions'] != null
+            ? Map<String, dynamic>.from(data['victory_conditions'] as Map)
+            : {},
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 
 abstract class AuthService {
@@ -8,36 +9,54 @@ abstract class AuthService {
   UserModel? get currentUser;
 }
 
-class MockAuthService implements AuthService {
-  UserModel? _currentUser;
-  final _userController = StreamController<UserModel?>.broadcast();
+class FirebaseAuthService implements AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
-  Stream<UserModel?> get userStream => _userController.stream;
+  Stream<UserModel?> get userStream {
+    return _auth.authStateChanges().map((User? firebaseUser) {
+      if (firebaseUser == null) return null;
+      return UserModel(
+        uid: firebaseUser.uid,
+        nickname: firebaseUser.displayName ?? 'Unknown',
+      );
+    });
+  }
 
   @override
-  UserModel? get currentUser => _currentUser;
+  UserModel? get currentUser {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    return UserModel(uid: user.uid, nickname: user.displayName ?? 'Unknown');
+  }
 
   @override
   Future<UserModel> signInAnonymously(String nickname) async {
-    await Future.delayed(
-      const Duration(milliseconds: 500),
-    ); // Network delay simulation
+    try {
+      final userCredential = await _auth.signInAnonymously();
+      final user = userCredential.user;
 
-    final newUser = UserModel(
-      uid: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      nickname: nickname,
-    );
+      if (user != null) {
+        await user.updateDisplayName(nickname);
+        // Refresh token/user to ensure displayName is propagated locally if needed
+        await user.reload();
+        final updatedUser = _auth.currentUser;
 
-    _currentUser = newUser;
-    _userController.add(newUser);
-    return newUser;
+        return UserModel(
+          uid: updatedUser!.uid,
+          nickname: updatedUser.displayName ?? nickname,
+        );
+      } else {
+        throw Exception('Firebase signInAnonymously returned null user');
+      }
+    } catch (e) {
+      print('Sign in failed: $e');
+      rethrow;
+    }
   }
 
   @override
   Future<void> signOut() async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    _currentUser = null;
-    _userController.add(null);
+    await _auth.signOut();
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:firebase_database/firebase_database.dart';
 import '../config/env_config.dart';
 import '../models/room_model.dart';
 import '../models/user_model.dart';
@@ -15,7 +16,7 @@ class RoomCreationResult {
 abstract class RoomService {
   Future<RoomCreationResult> createRoom({
     required String hostId,
-    required GameSystemRules rules, // Changed from settings
+    required GameSystemRules rules,
   });
   Future<String> joinRoom({required String pinCode, required UserModel user});
   Stream<RoomModel> getRoomStream(String roomId);
@@ -29,55 +30,67 @@ abstract class RoomService {
   Future<void> leaveRoom(String roomId, String uid);
 }
 
-class HttpRoomService implements RoomService {
-  // Polling management
-  final Map<String, Timer> _pollTimers = {};
-  final Map<String, StreamController<RoomModel>> _roomControllers = {};
+class FirebaseRoomService implements RoomService {
+  final FirebaseDatabase _db = FirebaseDatabase.instance;
   final Map<String, RoomModel> _lastKnownState = {};
+
+  // Cache stream controllers to allow multiple listeners if needed (though typically one screen listens)
+  // and to manage Firebase listener subscriptions.
+  final Map<String, StreamSubscription<DatabaseEvent>> _firebaseSubscriptions =
+      {};
+  final Map<String, StreamController<RoomModel>> _roomControllers = {};
 
   StreamController<RoomModel> _getController(String roomId) {
     if (!_roomControllers.containsKey(roomId)) {
       _roomControllers[roomId] = StreamController<RoomModel>.broadcast(
-        onListen: () => _startPolling(roomId),
-        onCancel: () => _stopPolling(roomId),
+        onListen: () => _startListening(roomId),
+        onCancel: () => _stopListening(roomId),
       );
     }
     return _roomControllers[roomId]!;
   }
 
-  void _startPolling(String roomId) {
-    if (_pollTimers.containsKey(roomId)) return;
-    _fetchRoomStatus(roomId);
-    _pollTimers[roomId] = Timer.periodic(const Duration(seconds: 2), (_) {
-      _fetchRoomStatus(roomId);
-    });
-  }
+  void _startListening(String roomId) {
+    if (_firebaseSubscriptions.containsKey(roomId)) return;
 
-  void _stopPolling(String roomId) {
-    _pollTimers[roomId]?.cancel();
-    _pollTimers.remove(roomId);
-  }
+    final ref = _db.ref('rooms/$roomId');
+    _firebaseSubscriptions[roomId] = ref.onValue.listen(
+      (event) {
+        if (event.snapshot.value != null) {
+          try {
+            // Firebase RTDB returns LinkedHashMap/Map, need appropriate casting
+            // JSON structure in DB should match what fromMap expects
+            final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
-  Future<void> _fetchRoomStatus(String roomId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${EnvConfig.apiUrl}/rooms/$roomId'),
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print(
-          'DEBUG: RoomService fetchRoomStatus $roomId raw data: $data',
-        ); // Debug Log
-        final room = RoomModel.fromMap(roomId, data);
-        _lastKnownState[roomId] = room;
-        if (!_roomControllers[roomId]!.isClosed) {
-          _roomControllers[roomId]!.add(room);
+            // Debugging log (optional, remove in production)
+            // print('DEBUG: Room update for $roomId: ${data['session_info']['status']}');
+
+            final room = RoomModel.fromMap(roomId, data);
+            _lastKnownState[roomId] = room;
+
+            if (_roomControllers.containsKey(roomId) &&
+                !_roomControllers[roomId]!.isClosed) {
+              _roomControllers[roomId]!.add(room);
+            }
+          } catch (e) {
+            print('Error parsing room data for $roomId: $e');
+          }
         }
-      }
-    } catch (e) {
-      print('Error polling room $roomId: $e');
-    }
+      },
+      onError: (error) {
+        print('Firebase listener error for room $roomId: $error');
+      },
+    );
   }
+
+  void _stopListening(String roomId) {
+    _firebaseSubscriptions[roomId]?.cancel();
+    _firebaseSubscriptions.remove(roomId);
+    // We don't necessarily close the controller here as it might be listened to again
+    // But usually onCancel means no one is listening.
+  }
+
+  // --- HTTP Actions (Write) ---
 
   @override
   Future<RoomCreationResult> createRoom({
@@ -120,16 +133,8 @@ class HttpRoomService implements RoomService {
       "release_duration_sec": rules.releaseRules.releaseDurationSec,
       "interruptible": rules.releaseRules.interruptible,
       "interrupt_distance_meter": rules.releaseRules.interruptDistanceMeter,
-
-      // Victory conditions are currently hardcoded in backend handler defaults or not fully exposed in flat params yet,
-      // but let's check if we should send them.
-      // Backend handler doesn't seem to read victory conditions from individual fields,
-      // it constructs it with defaults: policeWin: 'all_thieves_captured', thiefWin: 'survive_until_time_ends'.
-      // So we can omit them for now as per the handler code I saw.
     };
-    print(
-      "===================================================create ROOM===========================\n $body",
-    );
+
     final response = await http.post(
       Uri.parse('${EnvConfig.apiUrl}/rooms/create'),
       headers: {'Content-Type': 'application/json'},
@@ -167,10 +172,13 @@ class HttpRoomService implements RoomService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final realRoomId = data['room_id'];
-      final room = RoomModel.fromMap(realRoomId, data);
 
-      _lastKnownState[realRoomId] = room;
-      _getController(realRoomId).add(room);
+      // We don't get the full room state here usually, or if we do, we can push it.
+      // But purely relying on the listener is safer for consistency.
+      // However, to speed up initial UI, if data contains full room, we could use it.
+      // Let's rely on the stream picking it up quickly.
+      _startListening(realRoomId);
+
       return realRoomId;
     } else {
       throw Exception(
@@ -188,10 +196,7 @@ class HttpRoomService implements RoomService {
     final response = await http.post(
       Uri.parse('${EnvConfig.apiUrl}/rooms/$roomId/team'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        "user_id": uid,
-        "team": team.name, // "police" or "thief"
-      }),
+      body: jsonEncode({"user_id": uid, "team": team.name}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to select team: ${response.statusCode}');
@@ -216,21 +221,15 @@ class HttpRoomService implements RoomService {
     TeamRole? team,
     bool? isReady,
   }) async {
+    // Actions are still HTTP because clients generally don't have permission to write to /rooms/{roomId} directly
+    // unless granular rules are set up. Following the plan to keep writes via API.
     if (team != null) await selectTeam(roomId, uid, team);
     if (isReady != null) await toggleReady(roomId, uid, isReady);
-    _fetchRoomStatus(roomId);
   }
 
   @override
   Future<void> startGame(String roomId) async {
     final room = _lastKnownState[roomId];
-    // Need host ID, assume we have it or user ID matches logic in backend
-    // For now try using room.hostId if available, or current user from auth if injected (RoomService doesn't have Auth injected yet, maybe should?)
-    // The API requires "user_id" which should be the host's ID.
-    // Ideally RoomService should know the current user or receive it.
-    // For now, let's assume the caller will ensure this or we use what we have.
-    // Update interface to accept uid might be better, but staying with interface:
-    // We will just use room.hostId.
     if (room == null) throw Exception('Room state unknown');
 
     final response = await http.post(
@@ -253,7 +252,7 @@ class HttpRoomService implements RoomService {
     );
 
     if (response.statusCode == 200) {
-      _stopPolling(roomId);
+      _stopListening(roomId);
       _roomControllers[roomId]?.close();
       _roomControllers.remove(roomId);
     }

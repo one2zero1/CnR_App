@@ -37,8 +37,8 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        Provider<AuthService>(create: (_) => MockAuthService()),
-        Provider<RoomService>(create: (_) => HttpRoomService()),
+        Provider<AuthService>(create: (_) => FirebaseAuthService()),
+        Provider<RoomService>(create: (_) => FirebaseRoomService()),
         ProxyProvider2<AuthService, RoomService, GamePlayService>(
           update: (context, authService, roomService, previous) =>
               FirebaseGamePlayService(
