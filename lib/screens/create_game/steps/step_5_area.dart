@@ -47,6 +47,8 @@ class _Step5AreaState extends State<Step5Area> {
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
         final position = await Geolocator.getCurrentPosition();
+        if (!mounted) return; // Check if widget is still in tree
+
         setState(() {
           _myLocation = LatLng(position.latitude, position.longitude);
           // If we are at default value (Seoul), move to my location
@@ -62,10 +64,12 @@ class _Step5AreaState extends State<Step5Area> {
           _moveToMyLocation();
         }
       } else {
+        if (!mounted) return;
         setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint('위치 가져오기 실패: $e');
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
