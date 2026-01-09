@@ -178,6 +178,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   roomId: room.roomId,
                   settings:
                       room.gameSystemRules, // Pass rules instead of settings
+                  isHost: _myId == room.sessionInfo.hostId,
                 ),
               ),
             );

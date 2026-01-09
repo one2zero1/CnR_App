@@ -16,18 +16,23 @@ import 'move_to_jail_screen.dart';
 import '../services/game_play_service.dart';
 import '../services/auth_service.dart';
 import '../services/voice_service.dart';
+import '../services/room_service.dart';
+import 'game_result_screen.dart';
 
 class GamePlayScreen extends StatefulWidget {
   final TeamRole role;
   final String gameName;
   final String roomId;
   final GameSystemRules settings;
+  final bool isHost;
+
   const GamePlayScreen({
     super.key,
     required this.role,
     required this.gameName,
     required this.roomId,
     required this.settings,
+    required this.isHost,
   });
 
   @override
@@ -674,6 +679,24 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 title: const Text('설정'),
                 onTap: () => Navigator.pop(context),
               ),
+              if (widget.isHost)
+                ListTile(
+                  leading: const Icon(
+                    Icons.stop_circle_outlined,
+                    color: Colors.orange,
+                  ),
+                  title: const Text(
+                    '게임 종료',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEndGameDialog();
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.help_outline),
                 title: const Text('도움말'),
@@ -743,6 +766,57 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('예, 잡혔어요'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEndGameDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('게임 종료'),
+        content: const Text(
+          '호스트 권한으로 게임을 종료하시겠습니까?\n모든 플레이어의 게임이 종료되고 결과 화면으로 이동합니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final user = context.read<AuthService>().currentUser;
+                final roomService = context.read<RoomService>();
+                final roomId = widget.roomId;
+
+                if (user != null) {
+                  // 먼저 화면을 이동시켜서 GamePlayScreen의 리스너(Stream)들을 해제시킴
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          GameResultScreen(gameName: widget.gameName),
+                    ),
+                  );
+
+                  // 그 후 백그라운드에서 게임 종료 요청
+                  roomService.endGame(roomId, user.uid).catchError((e) {
+                    debugPrint('게임 종료 요청 실패 (이미 이동함): $e');
+                  });
+                }
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('게임 종료 실패: $e')));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('종료하기'),
           ),
         ],
       ),

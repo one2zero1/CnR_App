@@ -28,6 +28,7 @@ abstract class RoomService {
   });
   Future<void> startGame(String roomId);
   Future<void> leaveRoom(String roomId, String uid);
+  Future<void> endGame(String roomId, String hostId);
 }
 
 class FirebaseRoomService implements RoomService {
@@ -255,6 +256,19 @@ class FirebaseRoomService implements RoomService {
       _stopListening(roomId);
       _roomControllers[roomId]?.close();
       _roomControllers.remove(roomId);
+    }
+  }
+
+  @override
+  Future<void> endGame(String roomId, String hostId) async {
+    final response = await http.post(
+      Uri.parse('${EnvConfig.apiUrl}/rooms/$roomId/end'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({"user_id": hostId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to end game: ${response.body}');
     }
   }
 }
