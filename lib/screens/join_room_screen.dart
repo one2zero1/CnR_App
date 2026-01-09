@@ -123,133 +123,137 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 32),
-            const Icon(Icons.vpn_key, size: 64, color: AppColors.primary),
-            const SizedBox(height: 24),
-            Text(
-              '방 코드 입력',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface, // Adaptive value
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '6자리 방 코드를 입력하세요',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: theme.textTheme.bodyMedium?.color, // Adaptive value
-              ),
-            ),
-            const SizedBox(height: 48),
-
-            // Hidden TextField + Visible Boxes Pattern
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // Hidden TextField to capture input
-                Opacity(
-                  opacity: 0,
-                  child: TextField(
-                    controller: _codeController,
-                    focusNode: _focusNode,
-                    keyboardType: TextInputType.text,
-                    textCapitalization: TextCapitalization.characters,
-                    maxLength: 6,
-                    onChanged: (value) {
-                      setState(() {});
-                      if (value.length == 6) {
-                        // Optional: Auto-submit or just dismiss keyboard
-                      }
-                    },
-                  ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 32),
+              const Icon(Icons.vpn_key, size: 64, color: AppColors.primary),
+              const SizedBox(height: 24),
+              Text(
+                '방 코드 입력',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
                 ),
-                // Visible Boxes
-                GestureDetector(
-                  onTap: () => FocusScope.of(context).requestFocus(_focusNode),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: List.generate(6, (index) {
-                      String char = '';
-                      if (index < _codeController.text.length) {
-                        char = _codeController.text[index];
-                      }
-                      bool isFocused = index == _codeController.text.length;
-                      if (_codeController.text.length == 6 && index == 5)
-                        isFocused = true; // Keep last focused if full
-
-                      return Container(
-                        width: 48,
-                        height: 56,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: char.isNotEmpty
-                              ? AppColors.primary.withOpacity(0.1)
-                              : theme.inputDecorationTheme.fillColor ??
-                                    Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isFocused && _focusNode.hasFocus
-                                ? AppColors.primary
-                                : (char.isNotEmpty
-                                      ? AppColors.primary
-                                      : theme.disabledColor),
-                            width: isFocused && _focusNode.hasFocus ? 2 : 1,
-                          ),
-                        ),
-                        child: Text(
-                          char,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '6자리 방 코드를 입력하세요',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: theme.textTheme.bodyMedium?.color,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 48),
 
-            const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: _isCodeComplete ? _joinRoom : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: theme.disabledColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+              // Hidden TextField + Visible Boxes Pattern
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Hidden TextField to capture input
+                  Opacity(
+                    opacity: 0,
+                    child: TextField(
+                      controller: _codeController,
+                      focusNode: _focusNode,
+                      keyboardType: TextInputType.text,
+                      textCapitalization: TextCapitalization.characters,
+                      maxLength: 6,
+                      onChanged: (value) {
+                        setState(() {});
+                        if (value.length == 6) {
+                          // Optional: Auto-submit or just dismiss keyboard
+                        }
+                      },
+                    ),
+                  ),
+                  // Visible Boxes
+                  GestureDetector(
+                    onTap: () =>
+                        FocusScope.of(context).requestFocus(_focusNode),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(6, (index) {
+                        String char = '';
+                        if (index < _codeController.text.length) {
+                          char = _codeController.text[index];
+                        }
+                        bool isFocused = index == _codeController.text.length;
+                        if (_codeController.text.length == 6 && index == 5) {
+                          isFocused = true;
+                        }
+
+                        return Container(
+                          width: 48,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: char.isNotEmpty
+                                ? AppColors.primary.withOpacity(0.1)
+                                : theme.inputDecorationTheme.fillColor ??
+                                      Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isFocused && _focusNode.hasFocus
+                                  ? AppColors.primary
+                                  : (char.isNotEmpty
+                                        ? AppColors.primary
+                                        : theme.disabledColor),
+                              width: isFocused && _focusNode.hasFocus ? 2 : 1,
+                            ),
+                          ),
+                          child: Text(
+                            char,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text('참가하기', style: TextStyle(fontSize: 18)),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _scanQR,
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('QR 스캔'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+
+              const SizedBox(height: 48),
+              ElevatedButton(
+                onPressed: _isCodeComplete ? _joinRoom : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: theme.disabledColor,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('참가하기', style: TextStyle(fontSize: 18)),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _scanQR,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('QR 스캔'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
