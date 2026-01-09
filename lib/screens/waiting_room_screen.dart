@@ -45,27 +45,15 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     _roomStream = roomService.getRoomStream(widget.roomId); // UUID 사용
 
     // Auto-ready for host
-    if (widget.isHost && _myId != null) {
+    // Auto-ready for everyone
+    if (_myId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         roomService
             .updateMyStatus(roomId: widget.roomId, uid: _myId!, isReady: true)
             .catchError((e) {
-              debugPrint('Failed to auto-ready host: $e');
+              debugPrint('Failed to auto-ready: $e');
             });
       });
-    }
-  }
-
-  Future<void> _toggleReady(RoomModel room, bool currentReady) async {
-    if (_myId == null) return;
-    try {
-      await context.read<RoomService>().updateMyStatus(
-        roomId: room.roomId,
-        uid: _myId!,
-        isReady: !currentReady,
-      );
-    } catch (e) {
-      _showError('준비 상태 변경 실패: $e');
     }
   }
 
@@ -855,34 +843,27 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: amIHost
-                  ? () => _startGame(room)
-                  : () => _toggleReady(room, iAmReady),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: amIHost
-                    ? AppColors.success
-                    : AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          if (amIHost)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _startGame(room),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 4,
+                  shadowColor: AppColors.success.withOpacity(0.5),
                 ),
-                elevation: 4,
-                shadowColor: (amIHost ? AppColors.success : AppColors.primary)
-                    .withOpacity(0.5),
-              ),
-              child: Text(
-                amIHost ? '게임 시작' : (iAmReady ? '준비 취소' : '준비 완료'),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                child: const Text(
+                  '게임 시작',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

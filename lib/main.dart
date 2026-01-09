@@ -11,11 +11,20 @@ import 'services/game_play_service.dart';
 import 'services/authority_service.dart';
 import 'services/chat_service.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 환경 변수 로드
   await dotenv.load(fileName: '.env');
+
+  // Firebase 초기화 (native config 사용)
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print("Firebase initialization failed: $e");
+  }
 
   runApp(const MyApp());
 }
@@ -30,9 +39,12 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         Provider<AuthService>(create: (_) => MockAuthService()),
         Provider<RoomService>(create: (_) => HttpRoomService()),
-        ProxyProvider<AuthService, GamePlayService>(
-          update: (context, authService, previous) =>
-              HttpGamePlayService(authService: authService),
+        ProxyProvider2<AuthService, RoomService, GamePlayService>(
+          update: (context, authService, roomService, previous) =>
+              FirebaseGamePlayService(
+                authService: authService,
+                roomService: roomService,
+              ),
         ),
         Provider<AuthorityService>(create: (_) => AuthorityService()),
         Provider<ChatService>(create: (_) => ChatService()),

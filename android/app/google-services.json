@@ -1,0 +1,30 @@
+{
+    "project_info": {
+        "project_number": "849122517812",
+        "firebase_url": "https://cops-and-robbers-58c98-default-rtdb.firebaseio.com",
+        "project_id": "cops-and-robbers-58c98",
+        "storage_bucket": "cops-and-robbers-58c98.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:849122517812:android:ad9cfceb660256abfbbb61",
+                "android_client_info": {
+                    "package_name": "com.cnr.game"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyACYw9Un4dmN02gXr3VG6xpQkshnJCrUPk"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

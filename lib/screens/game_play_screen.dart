@@ -118,23 +118,32 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     );
   }
 
-  Future<void> _checkBoundary(LatLng pos) async {
+  void _checkBoundary(LatLng pos) {
     if (_myId == null) return;
-    final result = await context.read<GamePlayService>().checkBoundary(
-      roomId: widget.roomId,
-      uid: _myId!,
-      position: pos,
+
+    // Client-side boundary check
+    final center = LatLng(
+      widget.settings.activityBoundary.centerLat,
+      widget.settings.activityBoundary.centerLng,
     );
-    if (result != null && !result.isWithinBoundary && !_showingExitWarning) {
-      // Using 'Exit Warning' logic for Boundary check for now, or add specific alert
-      // _showingExitWarning is for Back Button preventing.
-      // Let's repurpose or add boundary alert.
+    final int radius = widget.settings.activityBoundary.radiusMeter;
+
+    const distance = Distance();
+    final double currentDistance = distance.as(LengthUnit.Meter, pos, center);
+
+    // 경계 이탈 체크
+    if (currentDistance > radius && !_showingExitWarning) {
+      if (!widget.settings.activityBoundary.alertOnExit) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('경고: 활동 구역을 벗어났습니다!'),
           duration: Duration(seconds: 2),
+          backgroundColor: AppColors.danger,
         ),
       );
+
+      // TODO: 필요 시 서버에 이탈 로그 전송 (Direct DB Guide에 따르면 필수는 아님)
     }
   }
 
