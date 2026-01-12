@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
+import 'package:logger/logger.dart';
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'screens/splash_screen.dart';
@@ -15,6 +16,8 @@ import 'services/voice_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 
+final logger = Logger();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -25,7 +28,7 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
   } catch (e) {
-    print("Firebase initialization failed: $e");
+    logger.e("Firebase initialization failed", error: e);
   }
 
   runApp(const MyApp());

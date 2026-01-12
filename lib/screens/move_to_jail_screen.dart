@@ -4,6 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_sizes.dart';
+import '../config/app_strings.dart';
 import 'in_jail_screen.dart';
 import 'game_result_screen.dart';
 import '../models/game_types.dart';
@@ -87,23 +89,26 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
         if (didPop) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('감옥으로 이동해야 합니다 뒤로 갈 수 없습니다.'),
+            content: Text(AppStrings.cantGoBack),
             duration: Duration(seconds: 2),
           ),
         );
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('감옥으로 이동'),
+          title: const Text(AppStrings.moveToJailTitle),
           centerTitle: true,
           automaticallyImplyLeading: false,
           backgroundColor: AppColors.danger,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.surface,
           actions: [
             TextButton.icon(
               onPressed: _showGiveUpDialog,
-              icon: const Icon(Icons.flag, color: Colors.white),
-              label: const Text('포기', style: TextStyle(color: Colors.white)),
+              icon: const Icon(Icons.flag, color: AppColors.surface),
+              label: const Text(
+                AppStrings.giveUp,
+                style: TextStyle(color: AppColors.surface),
+              ),
             ),
           ],
         ),
@@ -151,7 +156,7 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
                       height: 50,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.surface,
                           border: Border.all(color: AppColors.police, width: 2),
                           shape: BoxShape.circle,
                         ),
@@ -168,43 +173,49 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
             ),
             // 상단 안내 메시지
             Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
+              top: AppSizes.paddingMedium,
+              left: AppSizes.paddingMedium,
+              right: AppSizes.paddingMedium,
               child: Card(
                 color: AppColors.danger,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSizes.paddingMedium),
                   child: Column(
                     children: [
                       const Text(
-                        '🚨 체포되었습니다!',
+                        AppStrings.arrestedTitle,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.surface,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSizes.spaceSmall),
                       const Text(
-                        '스스로 감옥으로 이동하세요.\n감옥에 도착해야 이후 플레이가 가능합니다.',
+                        AppStrings.arrestedContent,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontSize: 14),
+                        style: TextStyle(
+                          color: AppColors.surface,
+                          fontSize: 14,
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSizes.spaceLarge),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                          horizontal: AppSizes.paddingMedium,
+                          vertical: AppSizes.paddingSmall,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withOpacity(
+                            0.2,
+                          ), // Keeping opacity on white/generic for transparency over danger color
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
+                          // Use simple string concat for now instead of complex formatter
                           '남은 거리: ${_distanceToJail.toInt()}m',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -217,9 +228,9 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
             ),
             // 하단 도착 확인 버튼
             Positioned(
-              bottom: 32,
-              left: 24,
-              right: 24,
+              bottom: AppSizes.paddingXLarge,
+              left: AppSizes.paddingLarge,
+              right: AppSizes.paddingLarge,
               child: ElevatedButton(
                 onPressed: isArrived
                     ? () {
@@ -241,15 +252,15 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
                   backgroundColor: isArrived ? AppColors.police : Colors.grey,
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppSizes.cardRadius),
                   ),
                 ),
                 child: Text(
-                  isArrived ? '감옥 입장하기' : '감옥으로 이동하세요',
+                  isArrived ? AppStrings.enterJail : AppStrings.moveToJailGuide,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.surface,
                   ),
                 ),
               ),
@@ -264,12 +275,12 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('게임 포기'),
-        content: const Text('정말 게임을 포기하시겠습니까?\n포기하면 결과 화면으로 이동합니다.'),
+        title: const Text(AppStrings.giveUpTitle),
+        content: const Text(AppStrings.giveUpContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+            child: const Text(AppStrings.cancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -284,7 +295,7 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('포기하기'),
+            child: const Text(AppStrings.giveUpConfirm),
           ),
         ],
       ),

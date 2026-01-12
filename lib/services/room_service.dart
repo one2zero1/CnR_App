@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:logger/logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_database/firebase_database.dart';
 import '../config/env_config.dart';
@@ -34,6 +35,7 @@ abstract class RoomService {
 class FirebaseRoomService implements RoomService {
   final FirebaseDatabase _db = FirebaseDatabase.instance;
   final Map<String, RoomModel> _lastKnownState = {};
+  final _logger = Logger();
 
   // Cache stream controllers to allow multiple listeners if needed (though typically one screen listens)
   // and to manage Firebase listener subscriptions.
@@ -64,7 +66,7 @@ class FirebaseRoomService implements RoomService {
             final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
             // Debugging log (optional, remove in production)
-            // print('DEBUG: Room update for $roomId: ${data['session_info']['status']}');
+            // _logger.d('DEBUG: Room update for $roomId: ${data['session_info']['status']}');
 
             final room = RoomModel.fromMap(roomId, data);
             _lastKnownState[roomId] = room;
@@ -74,12 +76,12 @@ class FirebaseRoomService implements RoomService {
               _roomControllers[roomId]!.add(room);
             }
           } catch (e) {
-            print('Error parsing room data for $roomId: $e');
+            _logger.e('Error parsing room data for $roomId: $e');
           }
         }
       },
       onError: (error) {
-        print('Firebase listener error for room $roomId: $error');
+        _logger.e('Firebase listener error for room $roomId: $error');
       },
     );
   }

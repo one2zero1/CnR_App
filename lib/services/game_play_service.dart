@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:logger/logger.dart';
 import '../config/env_config.dart';
 import 'auth_service.dart';
 import 'room_service.dart';
@@ -34,6 +35,7 @@ abstract class GamePlayService {
 class FirebaseGamePlayService implements GamePlayService {
   final AuthService? authService;
   final RoomService? roomService;
+  final _logger = Logger();
 
   FirebaseGamePlayService({this.authService, this.roomService});
 
@@ -73,7 +75,7 @@ class FirebaseGamePlayService implements GamePlayService {
         'timestamp': ServerValue.timestamp,
       });
     } catch (e) {
-      print('Firebase update failed: $e');
+      _logger.e('Firebase update failed', error: e);
     }
   }
 

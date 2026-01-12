@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:logger/logger.dart';
 import '../models/user_model.dart';
 
 abstract class AuthService {
@@ -11,6 +12,7 @@ abstract class AuthService {
 
 class FirebaseAuthService implements AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final _logger = Logger();
 
   @override
   Stream<UserModel?> get userStream {
@@ -50,7 +52,7 @@ class FirebaseAuthService implements AuthService {
         throw Exception('Firebase signInAnonymously returned null user');
       }
     } catch (e) {
-      print('Sign in failed: $e');
+      _logger.e('Sign in failed', error: e);
       rethrow;
     }
   }

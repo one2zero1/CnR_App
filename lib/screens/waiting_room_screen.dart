@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:provider/provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_theme.dart'; // Exports AppColors
+import '../config/app_strings.dart';
+import '../theme/app_sizes.dart';
 import 'game_play_screen.dart';
 import 'chat_screen.dart';
-import 'map_preview_screen.dart'; // Import
+import 'map_preview_screen.dart';
 import '../models/game_types.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
@@ -44,7 +46,6 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     _myId = authService.currentUser?.uid;
     _roomStream = roomService.getRoomStream(widget.roomId); // UUID 사용
 
-    // Auto-ready for host
     // Auto-ready for everyone
     if (_myId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -76,7 +77,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       setState(() {
         _optimisticRoles.remove(_myId!);
       });
-      _showError('팀 변경 실패: $e');
+      _showError('${AppStrings.changeTeamFailed}$e');
     }
   }
 
@@ -86,7 +87,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     try {
       await context.read<RoomService>().startGame(room.roomId);
     } catch (e) {
-      _showError('게임 시작 실패: $e');
+      _showError('${AppStrings.startGameFailed}$e');
     }
   }
 
@@ -97,8 +98,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) =>
-          const Center(child: CircularProgressIndicator(color: Colors.white)),
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppColors.surface),
+      ),
     );
 
     try {
@@ -109,7 +111,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (mounted) Navigator.of(context).pop(); // Pop loading
-      _showError('방 나가기 실패: $e');
+      _showError('${AppStrings.leaveRoomFailed}$e');
     }
   }
 
@@ -123,12 +125,12 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('방 나가기'),
-        content: const Text('정말 방을 나가시겠습니까?'),
+        title: const Text(AppStrings.leaveRoomTitle),
+        content: const Text(AppStrings.leaveRoomContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+            child: const Text(AppStrings.cancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -136,7 +138,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               _leaveRoom(roomId); // Start leaving logic
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('나가기'),
+            child: const Text(AppStrings.leaveRoom),
           ),
         ],
       ),
@@ -150,7 +152,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(
-            body: Center(child: Text('Error: ${snapshot.error}')),
+            body: Center(
+              child: Text('${AppStrings.errorGeneric}: ${snapshot.error}'),
+            ),
           );
         }
 
@@ -186,13 +190,21 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         }
 
         final players = room.participants.entries.map((e) {
+          // Optimistic role override
+          TeamRole displayRole;
+          if (_optimisticRoles.containsKey(e.key)) {
+            displayRole = _optimisticRoles[e.key]!;
+          } else {
+            displayRole = TeamRole.values.firstWhere(
+              (r) => r.name == e.value.team,
+              orElse: () => TeamRole.unassigned,
+            );
+          }
+
           return PlayerUIModel(
             id: e.key,
             nickname: e.value.nickname,
-            role: TeamRole.values.firstWhere(
-              (r) => r.name == e.value.team,
-              orElse: () => TeamRole.unassigned,
-            ),
+            role: displayRole,
             isReady: e.value.ready,
             isHost: e.key == room.sessionInfo.hostId,
           );
@@ -226,7 +238,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 onTap: () => _showLeaveDialog(widget.roomId),
                 borderRadius: BorderRadius.circular(50),
                 child: Container(
-                  margin: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.all(AppSizes.paddingSmall),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface.withOpacity(0.5),
                     shape: BoxShape.circle,
@@ -239,7 +251,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               ),
               actions: [
                 Container(
-                  margin: const EdgeInsets.only(right: 8),
+                  margin: const EdgeInsets.only(right: AppSizes.paddingSmall),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface.withOpacity(0.5),
                     shape: BoxShape.circle,
@@ -255,7 +267,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                       );
                     },
                     icon: Icon(Icons.map, color: theme.colorScheme.onSurface),
-                    tooltip: '지도 확인',
+                    tooltip: '지도 확인', // TODO: Add to strings
                   ),
                 ),
                 IconButton(
@@ -274,7 +286,12 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 _buildHeader(room.sessionInfo.pinCode, players.length),
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSizes.paddingLarge,
+                      0,
+                      AppSizes.paddingLarge,
+                      AppSizes.paddingLarge,
+                    ),
                     itemCount: players.length,
                     itemBuilder: (context, index) {
                       return _buildPlayerCard(players[index], amIHost, room);
@@ -300,15 +317,15 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
 
   Widget _buildHeader(String roomCode, int playerCount) {
     return Container(
-      margin: const EdgeInsets.all(24),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.all(AppSizes.paddingLarge),
+      padding: const EdgeInsets.all(AppSizes.paddingLarge),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.primary, AppColors.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withOpacity(0.3),
@@ -319,48 +336,48 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       ),
       child: Column(
         children: [
-          const Text(
-            '입장 코드',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+          Text(
+            AppStrings.roomCode,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSizes.spaceSmall),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 roomCode,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 4,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSizes.spaceMedium),
               IconButton(
                 onPressed: () {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('코드가 복사되었습니다!')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text(AppStrings.codeCopied)),
+                  );
                 },
-                icon: const Icon(Icons.copy, color: Colors.white),
-                tooltip: '코드 복사',
+                icon: const Icon(Icons.copy, color: AppColors.surface),
+                tooltip: AppStrings.copyCodeTooltip,
                 constraints: const BoxConstraints(),
                 padding: EdgeInsets.zero,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSizes.spaceMedium),
               IconButton(
                 onPressed: () => _showQRCodeDialog(roomCode),
-                icon: const Icon(Icons.qr_code_2, color: Colors.white),
-                tooltip: 'QR 코드 보기',
+                icon: const Icon(Icons.qr_code_2, color: AppColors.surface),
+                tooltip: AppStrings.viewQrTooltip,
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  padding: const EdgeInsets.all(8),
+                  backgroundColor: AppColors.surface.withOpacity(0.2),
+                  padding: const EdgeInsets.all(AppSizes.paddingSmall),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSizes.spaceMedium),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -370,11 +387,16 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.person, color: Colors.white, size: 16),
+                const Icon(Icons.person, color: AppColors.surface, size: 16),
                 const SizedBox(width: 4),
                 Text(
+                  // AppStrings.playerCountFormat doesn't support direct formatting here without sprintf logic or just manual string interpolation
+                  // Manual for now: '현재 인원 $playerCount/8명'
                   '현재 인원 $playerCount/8명',
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: const TextStyle(
+                    color: AppColors.surface,
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),
@@ -388,26 +410,28 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSizes.paddingLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                '방 입장 QR 코드',
+                AppStrings.qrCodeTitle,
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSizes.paddingLarge),
               QrImageView(
                 data: code,
                 version: QrVersions.auto,
                 size: 200.0,
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.surface,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSizes.paddingLarge),
               Text(
-                '코드: $code',
+                'CODE: $code',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -415,17 +439,17 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   letterSpacing: 2,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSizes.paddingLarge),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.grey[200],
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppColors.background,
+                    foregroundColor: AppColors.textPrimary,
                   ),
-                  child: const Text('닫기'),
+                  child: const Text(AppStrings.close),
                 ),
               ),
             ],
@@ -442,10 +466,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     final roleColor = isPolice ? AppColors.police : AppColors.thief;
 
     final card = Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSizes.spaceMedium),
       decoration: BoxDecoration(
         color: theme.cardTheme.color, // Use theme card color
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1), // Slightly stronger shadow
@@ -456,7 +480,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         border: Border.all(color: roleColor.withOpacity(0.5), width: 1.5),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSizes.paddingMedium),
         child: Row(
           children: [
             Stack(
@@ -476,19 +500,19 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: Colors.amber,
+                        color: AppColors.warning,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.star,
                         size: 10,
-                        color: Colors.white,
+                        color: AppColors.surface,
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSizes.spaceMedium),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,8 +539,11 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
-                            '나',
-                            style: TextStyle(color: Colors.white, fontSize: 10),
+                            AppStrings.meTag,
+                            style: TextStyle(
+                              color: AppColors.surface,
+                              fontSize: 10,
+                            ),
                           ),
                         ),
                     ],
@@ -532,7 +559,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                         ),
                         SizedBox(width: 4),
                         Text(
-                          '준비완료',
+                          AppStrings.readyStatus,
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.success,
@@ -543,7 +570,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                     )
                   else
                     Text(
-                      '대기중...',
+                      AppStrings.waitingStatus,
                       style: TextStyle(
                         fontSize: 12,
                         color:
@@ -581,21 +608,24 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         children: [
           ListTile(
             title: Text(
-              '$nickname 관리',
+              '$nickname 관리', // TODO: Use AppStrings.manageUserFormat with simple replace or interpolation
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.swap_horiz, color: Colors.blue),
-            title: const Text('역할 강제 변경'),
+            leading: const Icon(Icons.swap_horiz, color: AppColors.policeLight),
+            title: const Text(AppStrings.forceChangeRole),
             onTap: () {
               Navigator.pop(context);
               _showRoleChangeDialog(targetId, roomId);
             },
           ),
           ListTile(
-            leading: const Icon(Icons.remove_circle_outline, color: Colors.red),
-            title: const Text('강제 퇴장'),
+            leading: const Icon(
+              Icons.remove_circle_outline,
+              color: AppColors.danger,
+            ),
+            title: const Text(AppStrings.kickUser),
             onTap: () {
               Navigator.pop(context);
               _kickUser(targetId, roomId);
@@ -611,9 +641,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
       await context.read<AuthorityService>().kickUser(roomId, _myId!, targetId);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('사용자를 강제 퇴장시켰습니다.')));
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.userKicked)));
     } catch (e) {
-      _showError('강퇴 실패: $e');
+      _showError('${AppStrings.kickUserFailed}$e');
     }
   }
 
@@ -621,21 +651,21 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     showDialog(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('역할 선택'),
+        title: const Text(AppStrings.selectRole),
         children: [
           SimpleDialogOption(
             onPressed: () {
               Navigator.pop(context);
               _forceRoleChange(targetId, roomId, 'police');
             },
-            child: const Text('경찰'),
+            child: const Text(AppStrings.rolePolice),
           ),
           SimpleDialogOption(
             onPressed: () {
               Navigator.pop(context);
               _forceRoleChange(targetId, roomId, 'thief');
             },
-            child: const Text('도둑'),
+            child: const Text(AppStrings.roleThief),
           ),
         ],
       ),
@@ -655,7 +685,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         newRole,
       );
     } catch (e) {
-      _showError('역할 변경 실패: $e');
+      _showError('${AppStrings.changeRoleFailed}$e');
     }
   }
 
@@ -698,7 +728,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 '👮',
                 style: TextStyle(
                   fontSize: 16,
-                  color: isPolice ? Colors.white : Colors.grey,
+                  color: isPolice ? AppColors.surface : AppColors.textHint,
                 ),
               ),
             ),
@@ -724,7 +754,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 '🏃',
                 style: TextStyle(
                   fontSize: 16,
-                  color: !isPolice ? Colors.white : Colors.grey,
+                  color: !isPolice ? AppColors.surface : AppColors.textHint,
                 ),
               ),
             ),
@@ -745,7 +775,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Text(
-          '❓ 미정',
+          AppStrings.roleUnknown,
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
         ),
       );
@@ -759,7 +789,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
-        player.role == TeamRole.police ? '👮 경찰' : '🏃 도둑',
+        player.role == TeamRole.police
+            ? AppStrings.rolePolice
+            : AppStrings.roleThief,
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: player.role == TeamRole.police
@@ -778,7 +810,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   ) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSizes.paddingLarge),
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -801,7 +833,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   builder: (_) => ChatScreen(
                     roomId: widget.roomId,
                     userRole: TeamRole.unassigned,
-                    title: '대기실 채팅',
+                    title: AppStrings.chatTitle,
                     isTeamChat: false, // Global only in waiting room
                   ),
                 ),
@@ -819,10 +851,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                     Icons.chat_bubble_outline,
                     color: theme.iconTheme.color ?? AppColors.textSecondary,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSizes.spaceMedium),
                   Expanded(
                     child: Text(
-                      '채팅에 참여하세요',
+                      AppStrings.joinChat,
                       style: TextStyle(
                         color:
                             theme.textTheme.bodyMedium?.color ??
@@ -843,7 +875,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSizes.spaceMedium),
           if (amIHost)
             SizedBox(
               width: double.infinity,
@@ -851,7 +883,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 onPressed: () => _startGame(room),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.success,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.surface,
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -860,7 +892,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   shadowColor: AppColors.success.withOpacity(0.5),
                 ),
                 child: const Text(
-                  '게임 시작',
+                  AppStrings.gameStart,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -886,11 +918,11 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   shadowColor: AppColors.primary.withOpacity(0.3),
                 ),
                 child: Text(
-                  iAmReady ? '준비 취소' : '준비 완료',
+                  iAmReady ? AppStrings.unready : AppStrings.ready,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.surface,
                   ),
                 ),
               ),

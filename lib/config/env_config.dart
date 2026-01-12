@@ -34,4 +34,25 @@ class EnvConfig {
 
   static bool get debugMode =>
       dotenv.env['DEBUG_MODE']?.toLowerCase() == 'true';
+
+  static void validate() {
+    if (isProduction) {
+      final requiredKeys = [
+        'NAVER_MAP_CLIENT_ID',
+        'FIREBASE_API_KEY',
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_MESSAGING_SENDER_ID',
+        'FIREBASE_APP_ID',
+        'API_BASE_URL',
+      ];
+
+      for (var key in requiredKeys) {
+        if (dotenv.env[key] == null || dotenv.env[key]!.isEmpty) {
+          throw Exception(
+            'Missing required environment variable in production: $key',
+          );
+        }
+      }
+    }
+  }
 }
