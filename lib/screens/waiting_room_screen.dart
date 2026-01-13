@@ -916,6 +916,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                     userRole: TeamRole.unassigned,
                     title: AppStrings.chatTitle,
                     isTeamChat: false, // Global only in waiting room
+                    enableTeamChat: false,
                   ),
                 ),
               );

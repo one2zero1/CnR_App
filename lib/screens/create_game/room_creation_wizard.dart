@@ -77,7 +77,6 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
           '새 게임 만들기 (${_currentStep + 1}/$_totalSteps)',
@@ -87,7 +86,7 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
           icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: _prevStep,
         ),
-        backgroundColor: Colors.white,
+        // backgroundColor: Colors.white, // Removed to follow theme
         elevation: 0,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),

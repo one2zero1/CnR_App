@@ -165,7 +165,7 @@ class _InJailScreenState extends State<InJailScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => ChatScreen(
-                                title: '팀 채팅',
+                                title: '채팅',
                                 isTeamChat: true,
                                 roomId: widget.roomId,
                                 userRole: widget.role,

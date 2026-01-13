@@ -471,7 +471,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               builder: (_) => ChatScreen(
                 roomId: widget.roomId,
                 userRole: widget.role,
-                title: isThief ? '팀 채팅 (도둑)' : '팀 채팅 (경찰)',
+                title: '채팅',
                 isTeamChat: true,
                 themeColor: isThief ? AppColors.thief : AppColors.police,
               ),
@@ -482,7 +482,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardTheme.color,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -550,7 +550,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Theme.of(context).cardColor.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
@@ -562,12 +562,16 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.people, color: Colors.grey[700], size: 18),
+                  Icon(
+                    Icons.people,
+                    color: Theme.of(context).iconTheme.color,
+                    size: 18,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     '$_myCaptureCount/3', // TODO: 연동
                     style: TextStyle(
-                      color: Colors.grey[800],
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -579,7 +583,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             // 메뉴 버튼
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
@@ -591,7 +595,10 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               ),
               child: IconButton(
                 onPressed: () => _showGameMenu(context, isThief),
-                icon: const Icon(Icons.menu, color: Colors.black87),
+                icon: Icon(
+                  Icons.menu,
+                  color: Theme.of(context).iconTheme.color,
+                ),
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 padding: EdgeInsets.zero,
               ),
@@ -757,7 +764,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   Widget _buildBottomButtons(bool isThief) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: Theme.of(context).cardColor.withOpacity(0.95),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -789,7 +796,10 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                   contentPadding: EdgeInsets.symmetric(vertical: 12),
                   isDense: true,
                 ),
-                style: const TextStyle(fontSize: 15),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ),
           ),

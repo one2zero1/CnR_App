@@ -183,15 +183,16 @@ class _Step5AreaState extends State<Step5Area> {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
+                    color: theme.cardColor.withOpacity(0.9),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: const [
                       BoxShadow(color: Colors.black12, blurRadius: 4),
                     ],
                   ),
-                  child: const Text(
+                  child: Text(
                     '지도를 터치하여 놀이 영역의 중심을 지정하세요.',
                     textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                   ),
                 ),
               ),
@@ -201,8 +202,8 @@ class _Step5AreaState extends State<Step5Area> {
                 child: FloatingActionButton(
                   mini: true,
                   onPressed: _moveToMyLocation,
-                  backgroundColor: Colors.white,
-                  child: const Icon(Icons.my_location, color: Colors.black),
+                  backgroundColor: theme.cardColor,
+                  child: Icon(Icons.my_location, color: theme.iconTheme.color),
                 ),
               ),
             ],

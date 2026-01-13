@@ -11,6 +11,7 @@ class ChatScreen extends StatefulWidget {
   final TeamRole userRole;
   final String title;
   final bool isTeamChat;
+  final bool enableTeamChat;
   final Color? themeColor;
 
   const ChatScreen({
@@ -19,6 +20,7 @@ class ChatScreen extends StatefulWidget {
     required this.userRole,
     required this.title,
     this.isTeamChat = false,
+    this.enableTeamChat = true,
     this.themeColor,
   });
 
@@ -39,8 +41,11 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   void initState() {
     super.initState();
-    // 2 Tabs: Global, Team
-    _tabController = TabController(length: 2, vsync: this);
+    // 2 Tabs: Global, Team (if enabled)
+    _tabController = TabController(
+      length: widget.enableTeamChat ? 2 : 1,
+      vsync: this,
+    );
 
     // Default tab based on isTeamChat
     if (widget.isTeamChat) {
@@ -48,15 +53,19 @@ class _ChatScreenState extends State<ChatScreen>
       _currentType = ChatType.team;
     }
 
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() {
-          _currentType = _tabController.index == 1
-              ? ChatType.team
-              : ChatType.global;
-        });
-      }
-    });
+    if (widget.enableTeamChat) {
+      _tabController.addListener(() {
+        if (!_tabController.indexIsChanging) {
+          setState(() {
+            _currentType = _tabController.index == 1
+                ? ChatType.team
+                : ChatType.global;
+          });
+        }
+      });
+    } else {
+      _currentType = ChatType.global;
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -121,20 +130,25 @@ class _ChatScreenState extends State<ChatScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(widget.title, style: const TextStyle(color: Colors.white)),
         backgroundColor: primaryColor,
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: '전체 채팅'),
-            Tab(text: '팀 채팅'),
-          ],
-        ),
+        bottom: widget.enableTeamChat
+            ? TabBar(
+                controller: _tabController,
+                indicatorColor: Colors.white,
+                labelColor: Colors.white, // Selected text color
+                unselectedLabelColor: Colors.white70, // Unselected text color
+                tabs: const [
+                  Tab(text: '전체 채팅'),
+                  Tab(text: '팀 채팅'),
+                ],
+              )
+            : null,
       ),
       body: Column(
         children: [
@@ -152,43 +166,65 @@ class _ChatScreenState extends State<ChatScreen>
                 }
 
                 final allMessages = snapshot.data!;
-                // Filter messages based on current Tab
-                final filteredMessages = allMessages.where((msg) {
-                  if (_currentType == ChatType.global) {
-                    // Global Tab shows ONLY Global messages? Or all? Usually Global shows all, Team shows Team only.
-                    // User said: "게임화면에서 미리보이는 채팅은 팀채팅, 전체채팅 둘다 보임" -> This is overlay.
-                    // For Chat Screen Tabs:
-                    // Tab 1 (Global): Show global type.
-                    // Tab 2 (Team): Show team type AND only my team.
-                    return msg.type == ChatType.global;
-                  } else {
-                    // Team Tab: Show team messages for MY team
-                    return msg.type == ChatType.team &&
-                        msg.team == widget.userRole;
-                  }
-                }).toList();
 
-                // Reverse for ListView
-                final reversedMessages = filteredMessages.reversed.toList();
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true, // Start from bottom
-                  padding: const EdgeInsets.all(16),
-                  itemCount: reversedMessages.length,
-                  itemBuilder: (context, index) {
-                    return _buildMessageBubble(
-                      reversedMessages[index],
-                      primaryColor,
-                    );
-                  },
-                );
+                if (widget.enableTeamChat) {
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildMessageList(
+                        allMessages,
+                        ChatType.global,
+                        primaryColor,
+                      ),
+                      _buildMessageList(
+                        allMessages,
+                        ChatType.team,
+                        primaryColor,
+                      ),
+                    ],
+                  );
+                } else {
+                  return _buildMessageList(
+                    allMessages,
+                    ChatType.global,
+                    primaryColor,
+                  );
+                }
               },
             ),
           ),
           _buildInputArea(primaryColor),
         ],
       ),
+    );
+  }
+
+  Widget _buildMessageList(
+    List<ChatMessage> allMessages,
+    ChatType type,
+    Color primaryColor,
+  ) {
+    // Filter messages based on type
+    final filteredMessages = allMessages.where((msg) {
+      if (type == ChatType.global) {
+        return msg.type == ChatType.global;
+      } else {
+        // Team Tab: Show team messages for MY team
+        return msg.type == ChatType.team && msg.team == widget.userRole;
+      }
+    }).toList();
+
+    // Reverse for ListView
+    final reversedMessages = filteredMessages.reversed.toList();
+
+    return ListView.builder(
+      controller: type == _currentType ? _scrollController : null,
+      reverse: true, // Start from bottom
+      padding: const EdgeInsets.all(16),
+      itemCount: reversedMessages.length,
+      itemBuilder: (context, index) {
+        return _buildMessageBubble(reversedMessages[index], primaryColor);
+      },
     );
   }
 
@@ -222,9 +258,9 @@ class _ChatScreenState extends State<ChatScreen>
                       ), // Team Icon
                     Text(
                       message.senderName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -234,7 +270,7 @@ class _ChatScreenState extends State<ChatScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isMe ? primaryColor : Colors.white,
+                color: isMe ? primaryColor : Theme.of(context).cardTheme.color,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -252,7 +288,9 @@ class _ChatScreenState extends State<ChatScreen>
               child: Text(
                 message.content,
                 style: TextStyle(
-                  color: isMe ? Colors.white : AppColors.textPrimary,
+                  color: isMe
+                      ? Colors.white
+                      : Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 15,
                 ),
               ),
@@ -271,10 +309,18 @@ class _ChatScreenState extends State<ChatScreen>
   }
 
   Widget _buildInputArea(Color primaryColor) {
+    final theme = Theme.of(context);
+    final isTeamMode = _currentType == ChatType.team;
+
+    // Tint color for Team Chat mode
+    final backgroundColor = isTeamMode
+        ? primaryColor.withOpacity(0.05)
+        : theme.scaffoldBackgroundColor;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: backgroundColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -289,12 +335,13 @@ class _ChatScreenState extends State<ChatScreen>
             Expanded(
               child: TextField(
                 controller: _messageController,
+                style: TextStyle(color: theme.colorScheme.onSurface),
                 decoration: InputDecoration(
-                  hintText: _currentType == ChatType.global
-                      ? '전체에게 메시지 입력...'
-                      : '팀원에게 메시지 입력...',
+                  hintText: isTeamMode ? '팀원에게 메시지 입력...' : '전체에게 메시지 입력...',
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: isTeamMode
+                      ? primaryColor.withOpacity(0.1)
+                      : theme.inputDecorationTheme.fillColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,

@@ -122,12 +122,14 @@ class Step4Roles extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.grey[100],
+                color: isSelected
+                    ? AppColors.primary
+                    : theme.scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
-                color: isSelected ? Colors.white : Colors.grey[600],
+                color: isSelected ? Colors.white : theme.iconTheme.color,
                 size: 24,
               ),
             ),

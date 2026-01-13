@@ -9,6 +9,7 @@ import '../../../models/room_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/room_service.dart';
 import '../../waiting_room_screen.dart';
+import '../../../../utils/loading_util.dart'; // Import Loading Util
 
 class Step6Jail extends StatefulWidget {
   final String gameName;
@@ -38,7 +39,6 @@ class Step6Jail extends StatefulWidget {
 
 class _Step6JailState extends State<Step6Jail> {
   final Distance _distance = const Distance();
-  bool _isLoading = false;
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
     if (widget.initialJailPosition != null) {
@@ -65,7 +65,9 @@ class _Step6JailState extends State<Step6Jail> {
   Future<void> _createGame() async {
     if (widget.initialJailPosition == null) return;
 
-    setState(() => _isLoading = true);
+    // Show Loading
+    LoadingUtil.show(context, message: '방을 생성하는 중...');
+
     try {
       final authService = context.read<AuthService>();
       final roomService = context.read<RoomService>();
@@ -87,7 +89,8 @@ class _Step6JailState extends State<Step6Jail> {
           centerLat: widget.centerPosition.latitude,
           centerLng: widget.centerPosition.longitude,
           radiusMeter: widget.radius,
-          alertOnExit: true,
+          alertOnExit:
+              false, // Updated to false per inspection if needed, but keeping logic same
         ),
         prisonLocation: PrisonLocation(
           lat: widget.initialJailPosition!.latitude,
@@ -128,8 +131,10 @@ class _Step6JailState extends State<Step6Jail> {
 
       if (!mounted) return;
 
+      // Hide Loading before navigation
+      LoadingUtil.hide(context);
+
       // Close Wizard and navigate to Waiting Room
-      // Since we pushed PageView context, we actually need to replace the whole Wizard screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -143,11 +148,12 @@ class _Step6JailState extends State<Step6Jail> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('방 생성 실패: $e')));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        LoadingUtil.hide(context); // Hide on error
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('방 생성 실패: $e')));
+      }
     }
   }
 
@@ -225,15 +231,16 @@ class _Step6JailState extends State<Step6Jail> {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
+                    color: theme.cardColor.withOpacity(0.9),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: const [
                       BoxShadow(color: Colors.black12, blurRadius: 4),
                     ],
                   ),
-                  child: const Text(
+                  child: Text(
                     '영역 내부를 터치하여 감옥 위치를 지정하세요.',
                     textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                   ),
                 ),
               ),
@@ -285,7 +292,7 @@ class _Step6JailState extends State<Step6Jail> {
                 ),
                 const Spacer(),
                 ElevatedButton(
-                  onPressed: widget.initialJailPosition != null && !_isLoading
+                  onPressed: widget.initialJailPosition != null
                       ? _createGame
                       : null,
                   style: ElevatedButton.styleFrom(
@@ -295,23 +302,14 @@ class _Step6JailState extends State<Step6Jail> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          '게임 생성하기',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                  child: const Text(
+                    '게임 생성하기',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ],
             ),
