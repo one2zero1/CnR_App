@@ -288,8 +288,9 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const GameResultScreen(
+                  builder: (_) => GameResultScreen(
                     gameName: '경찰과 도둑',
+                    roomId: widget.roomId,
                   ), // TODO: 실제 게임 이름 전달
                 ),
               );

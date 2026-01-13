@@ -37,6 +37,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   late Stream<RoomModel> _roomStream;
   String? _myId;
   final Map<String, TeamRole> _optimisticRoles = {}; // Optimistic UI state
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -168,6 +169,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
 
         if (room.sessionInfo.status == 'playing') {
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_isNavigating) return;
+            _isNavigating = true;
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -207,8 +210,23 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             role: displayRole,
             isReady: e.value.ready,
             isHost: e.key == room.sessionInfo.hostId,
+            joinedAt: e.value.joinedAt,
           );
         }).toList();
+
+        // Sort players
+        players.sort((a, b) {
+          // 1. Host always top
+          if (a.isHost) return -1;
+          if (b.isHost) return 1;
+
+          // 2. Me (if not host) next
+          if (a.id == _myId) return -1;
+          if (b.id == _myId) return 1;
+
+          // 3. Joined time (ascending)
+          return a.joinedAt.compareTo(b.joinedAt);
+        });
 
         final amIHost = _myId == room.sessionInfo.hostId;
         final myPlayer = room.participants[_myId];
@@ -939,6 +957,7 @@ class PlayerUIModel {
   final TeamRole role;
   final bool isReady;
   final bool isHost;
+  final int joinedAt;
 
   PlayerUIModel({
     required this.id,
@@ -946,5 +965,6 @@ class PlayerUIModel {
     required this.role,
     required this.isReady,
     required this.isHost,
+    this.joinedAt = 0,
   });
 }

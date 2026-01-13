@@ -30,7 +30,9 @@ abstract class RoomService {
   Future<void> startGame(String roomId);
   Future<void> leaveRoom(String roomId, String uid);
   Future<void> endGame(String roomId, String hostId);
+  Future<void> resetGame(String roomId, String hostId);
   RoomModel? getRoom(String roomId);
+  void disposeRoom(String roomId);
 }
 
 class FirebaseRoomService implements RoomService {
@@ -139,6 +141,16 @@ class FirebaseRoomService implements RoomService {
   @override
   RoomModel? getRoom(String roomId) {
     return _lastKnownState[roomId];
+  }
+
+  void disposeRoom(String roomId) {
+    _stopListening(roomId);
+    if (_roomControllers.containsKey(roomId)) {
+      _roomControllers[roomId]?.close();
+      _roomControllers.remove(roomId);
+    }
+    _lastKnownState.remove(roomId);
+    _logger.i('RoomService: Disposed resources for room $roomId');
   }
 
   // --- HTTP Actions (Write) ---
@@ -319,6 +331,19 @@ class FirebaseRoomService implements RoomService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to end game: ${response.body}');
+    }
+  }
+
+  @override
+  Future<void> resetGame(String roomId, String hostId) async {
+    final response = await http.post(
+      Uri.parse('${EnvConfig.apiUrl}/rooms/$roomId/reset'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({"user_id": hostId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to reset game: ${response.body}');
     }
   }
 }

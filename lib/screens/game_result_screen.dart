@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/room_model.dart';
+import '../models/game_types.dart';
+import '../services/room_service.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
-import 'home_screen.dart';
+import 'waiting_room_screen.dart';
 
 class GameResultScreen extends StatefulWidget {
   final String gameName;
   final bool isHostEnded;
   final String? winnerTeam; // 'Police' or 'Thief'
+  final String roomId; // Added roomId
 
   const GameResultScreen({
     super.key,
     required this.gameName,
     this.isHostEnded = false,
     this.winnerTeam,
+    required this.roomId, // Required
   });
 
   @override
@@ -24,15 +31,29 @@ class _GameResultScreenState extends State<GameResultScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(),
-            _buildHeader(),
-            const Spacer(),
-            _buildBottomButton(),
-            const SizedBox(height: 40),
-          ],
+        child: StreamBuilder<RoomModel>(
+          stream: context.read<RoomService>().getRoomStream(widget.roomId),
+          initialData: context.read<RoomService>().getRoom(widget.roomId),
+          builder: (context, snapshot) {
+            final room = snapshot.data;
+            if (room != null) {
+              debugPrint(
+                'DEBUG: GameResultScreen room status: ${room.sessionInfo.status}',
+              );
+            }
+            final isWaiting = room?.sessionInfo.status == 'waiting';
+
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                _buildHeader(),
+                const Spacer(),
+                _buildBottomButtons(context, isWaiting, room),
+                const SizedBox(height: 40),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -97,29 +118,96 @@ class _GameResultScreenState extends State<GameResultScreen> {
     );
   }
 
-  Widget _buildBottomButton() {
+  Widget _buildBottomButtons(
+    BuildContext context,
+    bool isWaiting,
+    RoomModel? room,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: () {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-            (route) => false,
-          );
-        },
-        icon: const Icon(Icons.home),
-        label: const Text('홈으로 이동'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+      child: Column(
+        children: [
+          if (isWaiting)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  if (room == null) return;
+
+                  final user = context.read<AuthService>().currentUser;
+                  final isHost = room.sessionInfo.hostId == user?.uid;
+
+                  RoleAssignmentMethod roleMethod;
+                  switch (room.gameSystemRules.roleAssignmentMode) {
+                    case 'host':
+                      roleMethod = RoleAssignmentMethod.host;
+                      break;
+                    case 'random':
+                      roleMethod = RoleAssignmentMethod.random;
+                      break;
+                    case 'manual':
+                    default:
+                      roleMethod = RoleAssignmentMethod.manual;
+                  }
+
+                  context.read<RoomService>().disposeRoom(room.roomId);
+
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WaitingRoomScreen(
+                        roomId: room.roomId,
+                        roomCode: room.sessionInfo.pinCode,
+                        isHost: isHost,
+                        gameName: widget.gameName,
+                        roleMethod: roleMethod,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('대기실로 이동'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  textStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.home),
+            label: const Text('홈으로 이동'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

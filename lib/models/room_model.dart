@@ -136,11 +136,13 @@ class Participant {
   final String nickname;
   final bool ready;
   final String team; // police | thief | unassigned
+  final int joinedAt;
 
   Participant({
     required this.nickname,
     required this.ready,
     required this.team,
+    this.joinedAt = 0,
   });
 
   factory Participant.fromMap(Map<String, dynamic> data) {
@@ -148,11 +150,17 @@ class Participant {
       nickname: data['nickname'] as String? ?? 'Unknown',
       ready: data['ready'] as bool? ?? false,
       team: data['team'] as String? ?? 'unassigned',
+      joinedAt: data['joined_at'] as int? ?? 0,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {'nickname': nickname, 'ready': ready, 'team': team};
+    return {
+      'nickname': nickname,
+      'ready': ready,
+      'team': team,
+      'joined_at': joinedAt,
+    };
   }
 }
 

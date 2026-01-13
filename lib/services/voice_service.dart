@@ -97,6 +97,7 @@ class VoiceService {
         androidWillPauseWhenDucked: true,
       ),
     );
+    debugPrint('VoiceService: AudioSession configured (Voice/VoIP Mode)');
   }
 
   void dispose() {
@@ -117,6 +118,9 @@ class VoiceService {
       await init();
     }
 
+    // Ensure session is ready for recording
+    await _initAudioSession();
+
     final user = _authService.currentUser;
     if (user == null) {
       debugPrint('VoiceService: No user found');
@@ -134,10 +138,16 @@ class VoiceService {
     _recorderSubscription = _recorder.audioStream.listen((data) {
       if (data.isEmpty) return;
       // debugPrint('VoiceService: Stream data received: ${data.length} bytes');
+      // Uncomment to debug raw input
+      if (_currentSequence % 20 == 0) {
+        debugPrint(
+          'VoiceService: Recording... input bytes detected: ${data.length}',
+        );
+      }
       _audioBuffer.addAll(data);
       if (_audioBuffer.length >= _chunkSize) {
         debugPrint(
-          'VoiceService: Buffer full (${_audioBuffer.length}), sending chunk',
+          'VoiceService: Buffer full (${_audioBuffer.length}), logic indicates sending chunk',
         );
         // Extract chunk
         final chunk = Uint8List.fromList(_audioBuffer.sublist(0, _chunkSize));
@@ -213,9 +223,17 @@ class VoiceService {
       );
 
       final ref = FirebaseDatabase.instance.ref('voice_chat/$roomId');
-      ref.push().set(body).catchError((e) {
-        debugPrint('VoiceService: Firebase write error: $e');
-      });
+      ref
+          .push()
+          .set(body)
+          .then((_) {
+            debugPrint(
+              'VoiceService: Chunk $seq sent successfully to Firebase',
+            );
+          })
+          .catchError((e) {
+            debugPrint('VoiceService: Firebase write error: $e');
+          });
     } catch (e) {
       debugPrint('Error preparing chunk: $e');
     }
@@ -224,19 +242,42 @@ class VoiceService {
   // --- Receiving ---
 
   Future<void> startListening(String roomId, TeamRole myTeam) async {
-    if (!_isInit) await init();
+    debugPrint('VoiceService: 1. startListening called for room $roomId');
+
+    // Ensure previous session is completely stopped
+    debugPrint('VoiceService: 2. Calling stopListening...');
+    await stopListening();
+    debugPrint('VoiceService: 3. stopListening completed');
+
+    if (!_isInit) {
+      debugPrint('VoiceService: 4. Initializing service...');
+      await init();
+    }
+
+    // Re-configure audio session to ensure we have focus/route
+    debugPrint('VoiceService: 5. Re-initializing AudioSession...');
+    await _initAudioSession();
+    debugPrint('VoiceService: 6. AudioSession configured');
 
     final ref = FirebaseDatabase.instance.ref('voice_chat/$roomId');
 
     // Start player (it will idle until data is written)
+    debugPrint('VoiceService: 7. Starting PlayerStream...');
     await _player.start();
+    debugPrint('VoiceService: 8. PlayerStream started');
 
     // Listen new events
+    debugPrint(
+      'VoiceService: 9. Setting up Firebase listener path: voice_chat/$roomId',
+    );
     _firebaseSubscription = ref
-        .limitToLast(10)
+        .limitToLast(
+          50,
+        ) // Limit to recent chunks to prevent history flood (Main cause of freeze)
         .onChildAdded
         .listen(
           (event) {
+            // debugPrint('VoiceService: Event received! Key: ${event.snapshot.key}');
             final val = event.snapshot.value;
             if (val == null) return;
 
@@ -251,11 +292,14 @@ class VoiceService {
             debugPrint('Voice Service error (likely permission): $error');
           },
         );
+    debugPrint('VoiceService: 10. Listener attached');
   }
 
-  void stopListening() {
-    _firebaseSubscription?.cancel();
-    _player.stop();
+  Future<void> stopListening() async {
+    debugPrint('VoiceService: stopListening called');
+    await _firebaseSubscription?.cancel();
+    _firebaseSubscription = null;
+    await _player.stop();
   }
 
   void _onDataReceived(Map<String, dynamic> data, TeamRole myTeam) {
@@ -265,8 +309,15 @@ class VoiceService {
     final senderId = data['sender_id'];
     final teamStr = data['team'];
 
+    debugPrint('VoiceService: Data received from $senderId (Team: $teamStr)');
+
     if (senderId == myUid) return;
-    if (teamStr != myTeam.name) return;
+    if (teamStr != myTeam.name) {
+      debugPrint(
+        'VoiceService: Ignoring data from different team (My: ${myTeam.name}, Theirs: $teamStr)',
+      );
+      return;
+    }
 
     final encodedData = data['voice_data'] as String;
     final senderName = data['sender_name'] as String? ?? 'Unknown';
@@ -275,6 +326,7 @@ class VoiceService {
 
     if (encodedData.isNotEmpty) {
       final bytes = base64Decode(encodedData);
+      debugPrint('VoiceService: Writing ${bytes.length} bytes to player');
       // Write to player buffer directly
       _player.writeChunk(bytes);
     }

@@ -10,11 +10,13 @@ import 'game_result_screen.dart';
 class SpectatorScreen extends StatefulWidget {
   final String gameName;
   final GameSystemRules settings;
+  final String roomId; // Added roomId
 
   const SpectatorScreen({
     super.key,
     required this.gameName,
     required this.settings,
+    required this.roomId,
   });
 
   @override
@@ -127,7 +129,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => GameResultScreen(gameName: widget.gameName),
+        builder: (_) =>
+            GameResultScreen(gameName: widget.gameName, roomId: widget.roomId),
       ),
     );
   }

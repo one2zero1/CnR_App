@@ -109,7 +109,9 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       debugPrint('DEBUG: Room status update -> ${room.sessionInfo.status}');
 
       if (room.sessionInfo.status == 'force_ended' ||
-          room.sessionInfo.status == 'cleaning') {
+          room.sessionInfo.status == 'ended' ||
+          room.sessionInfo.status == 'cleaning' ||
+          room.sessionInfo.status == 'waiting') {
         debugPrint('DEBUG: Detected game end. Navigating away...');
         _isNavigating = true;
 
@@ -119,27 +121,91 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
         debugPrint('DEBUG: Voice service stopped. Pushing Navigation...');
 
         // Logic to determine winner (Heuristic)
-        // If status is 'cleaning' and time remains > 0 -> Police Win (All captured)
-        // If status is 'cleaning' and time <= 0 -> Thief Win (Time over)
-        // Note: This is an estimation. Ideally backend should send result.
         String? winner;
         if (room.sessionInfo.status == 'cleaning') {
           final isTimeOver = DateTime.now().isAfter(room.sessionInfo.expiresAt);
           winner = isTimeOver ? 'Thief' : 'Police';
         }
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => GameResultScreen(
-              gameName: widget.gameName,
-              isHostEnded: room.sessionInfo.status == 'force_ended',
-              winnerTeam: winner,
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => GameResultScreen(
+                gameName: widget.gameName,
+                isHostEnded: room.sessionInfo.status == 'force_ended',
+                winnerTeam: winner,
+                roomId: widget.roomId,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     });
+  }
+
+  void _showEndGameDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('게임 종료 설정'),
+        content: const Text('게임을 어떻게 종료하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('취소', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext); // Close dialog
+              // Call restart API
+              try {
+                if (!mounted) return;
+                await context.read<RoomService>().resetGame(
+                  widget.roomId,
+                  _myId!,
+                );
+                // Listener will handle navigation
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('다시 시작 실패: $e')));
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('다시 시작'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext); // Close dialog
+              // Call end API
+              try {
+                if (!mounted) return;
+                await context.read<RoomService>().endGame(
+                  widget.roomId,
+                  _myId!,
+                );
+                // Listener will handle navigation
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('게임 종료 실패: $e')));
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('완전 종료'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -821,57 +887,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('예, 잡혔어요'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEndGameDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('게임 종료'),
-        content: const Text(
-          '호스트 권한으로 게임을 종료하시겠습니까?\n모든 플레이어의 게임이 종료되고 결과 화면으로 이동합니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                final user = context.read<AuthService>().currentUser;
-                final roomService = context.read<RoomService>();
-                final roomId = widget.roomId;
-
-                if (user != null) {
-                  // 먼저 화면을 이동시켜서 GamePlayScreen의 리스너(Stream)들을 해제시킴
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          GameResultScreen(gameName: widget.gameName),
-                    ),
-                  );
-
-                  // 그 후 백그라운드에서 게임 종료 요청
-                  roomService.endGame(roomId, user.uid).catchError((e) {
-                    debugPrint('게임 종료 요청 실패 (이미 이동함): $e');
-                  });
-                }
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('게임 종료 실패: $e')));
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('종료하기'),
           ),
         ],
       ),

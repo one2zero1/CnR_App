@@ -209,7 +209,10 @@ class _InJailScreenState extends State<InJailScreen> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => GameResultScreen(gameName: widget.gameName),
+                  builder: (_) => GameResultScreen(
+                    gameName: widget.gameName,
+                    roomId: widget.roomId,
+                  ),
                 ),
               );
             },
