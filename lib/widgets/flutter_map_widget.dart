@@ -59,11 +59,44 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
   Widget build(BuildContext context) {
     final center = widget.initialPosition ?? const LatLng(37.5665, 126.9780);
 
+    // 오버레이 영역에 맞게 줌 레벨 자동 조정
+    CameraFit? initialFit;
+    if (widget.overlayCenter != null && widget.circleRadius != null) {
+      const distance = Distance();
+      final north = distance.offset(
+        widget.overlayCenter!,
+        widget.circleRadius!,
+        0,
+      );
+      final east = distance.offset(
+        widget.overlayCenter!,
+        widget.circleRadius!,
+        90,
+      );
+      final south = distance.offset(
+        widget.overlayCenter!,
+        widget.circleRadius!,
+        180,
+      );
+      final west = distance.offset(
+        widget.overlayCenter!,
+        widget.circleRadius!,
+        270,
+      );
+
+      final bounds = LatLngBounds.fromPoints([north, east, south, west]);
+      initialFit = CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(20), // 여백
+      );
+    }
+
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
-        initialZoom: 15.0,
+        initialCameraFit: initialFit, // 범위에 맞게 자동 줌
+        initialZoom: 15.0, // initialCameraFit이 있으면 무시됨 (backup)
         onTap: (tapPosition, point) => widget.onMapTap?.call(point),
       ),
       children: [

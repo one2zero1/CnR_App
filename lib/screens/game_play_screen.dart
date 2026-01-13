@@ -46,7 +46,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   int _remainingSeconds = 600; // Will be init in initState
   int _nextRevealSeconds = 180; // 3분
   bool _showingLocationAlert = false;
-  bool _showingExitWarning = false; // 뒤로가기 경고 상태
   bool _isTalking = false; // 무전기 상태 (PTT)
   int _myCaptureCount = 0;
 
@@ -359,7 +358,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     final double currentDistance = distance.as(LengthUnit.Meter, pos, center);
 
     // 경계 이탈 체크
-    if (currentDistance > radius && !_showingExitWarning) {
+    if (currentDistance > radius) {
       if (!widget.settings.activityBoundary.alertOnExit) return;
 
       ToastUtil.show(context, '경고: 활동 구역을 벗어났습니다!', isError: true);
@@ -407,15 +406,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        // 커스텀 경고 메시지 표시
-        if (!_showingExitWarning) {
-          setState(() => _showingExitWarning = true);
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              setState(() => _showingExitWarning = false);
-            }
-          });
-        }
+        // Show Game Menu on Back Press
+        _showGameMenu(context, isThief);
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false, // 키보드 올라와도 배경 유지
@@ -457,7 +449,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             // 6. 기타 플로팅 버튼들
             if (_showingLocationAlert)
               Positioned.fill(child: _buildLocationAlert()),
-            if (_showingExitWarning) _buildExitWarningToast(),
             if (_speakingNickname != null) _buildVoiceOverlay(),
             if (isThief) _buildCaughtButton(),
             _buildVoiceButton(isThief),
@@ -1157,22 +1148,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExitWarningToast() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text(
-          '⚠️ 활동 구역을 벗어나면 경고가 발생합니다!',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );

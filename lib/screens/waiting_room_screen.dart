@@ -13,6 +13,7 @@ import '../services/auth_service.dart';
 import '../services/room_service.dart';
 import '../services/authority_service.dart';
 import '../utils/loading_util.dart'; // Import Loading Util
+import '../utils/toast_util.dart';
 
 class WaitingRoomScreen extends StatefulWidget {
   final String roomId; // 실제 Room UUID (API 통신용)
@@ -88,6 +89,39 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   Future<void> _startGame(RoomModel room) async {
     if (!widget.isHost) return;
 
+    // 1. 미배정 인원 확인
+    final hasUnassigned = room.participants.values.any(
+      (p) => p.team == 'unassigned',
+    );
+    if (hasUnassigned) {
+      ToastUtil.show(context, '모든 플레이어가 팀을 정해야 합니다.', isError: true);
+      return;
+    }
+
+    // 2. 경찰 인원 확인 (최소 1명)
+    final policeCount = room.participants.values
+        .where((p) => p.team == 'police')
+        .length;
+    if (policeCount < 1) {
+      ToastUtil.show(context, '경찰이 최소 1명 필요합니다.', isError: true);
+      return;
+    }
+
+    // 3. 준비 완료 확인 (호스트 제외 전원 Ready)
+    // 호스트는 준비 완료 상태가 아니어도 됨 (시작 버튼이 준비 완료임)
+    // 하지만 데이터상으로는 호스트도 참여자 리스트에 있으므로, 호스트가 아닌 참여자들만 체크
+    final nonHostParticipants = room.participants.entries.where(
+      (e) => e.key != room.sessionInfo.hostId,
+    );
+    final notReadyCount = nonHostParticipants
+        .where((e) => !e.value.ready)
+        .length;
+
+    if (notReadyCount > 0) {
+      ToastUtil.show(context, '모든 플레이어가 준비 완료 상태여야 합니다.', isError: true);
+      return;
+    }
+
     // Show Loading
     LoadingUtil.show(context, message: '게임을 시작하는 중...');
     setState(() => _isStartingGame = true);
@@ -103,7 +137,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         LoadingUtil.hide(context);
         setState(() => _isStartingGame = false);
       }
-      _showError('${AppStrings.startGameFailed}$e');
+      ToastUtil.show(context, '${AppStrings.startGameFailed}$e', isError: true);
     }
   }
 
