@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 
 abstract class AuthService {
   Future<UserModel> signInAnonymously(String nickname);
+  Future<void> updateProfile({required String nickname});
   Future<void> signOut();
   Stream<UserModel?> get userStream;
   UserModel? get currentUser;
@@ -16,7 +17,7 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Stream<UserModel?> get userStream {
-    return _auth.authStateChanges().map((User? firebaseUser) {
+    return _auth.userChanges().map((User? firebaseUser) {
       if (firebaseUser == null) return null;
       return UserModel(
         uid: firebaseUser.uid,
@@ -53,6 +54,20 @@ class FirebaseAuthService implements AuthService {
       }
     } catch (e) {
       _logger.e('Sign in failed', error: e);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateProfile({required String nickname}) async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await user.updateDisplayName(nickname);
+        await user.reload();
+      }
+    } catch (e) {
+      _logger.e('Update profile failed', error: e);
       rethrow;
     }
   }

@@ -4,153 +4,167 @@ import 'create_game/room_creation_wizard.dart';
 import 'join_room_screen.dart';
 import 'my_records_screen.dart';
 import 'settings_screen.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
 
 class HomeScreen extends StatelessWidget {
-  final String nickname;
-
-  const HomeScreen({super.key, required this.nickname});
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // backgroundColor removed to use Theme
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu), // Icon color from Theme
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MyRecordsScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-      drawer: _buildDrawer(context),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.waving_hand,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '환영합니다, $nickname님',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
+    final authService = context.watch<AuthService>();
+
+    return StreamBuilder<UserModel?>(
+      stream: authService.userStream,
+      builder: (context, snapshot) {
+        final nickname = snapshot.data?.nickname ?? 'Guest';
+
+        return Scaffold(
+          // backgroundColor removed to use Theme
+          appBar: AppBar(
+            leading: Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu), // Icon color from Theme
+                onPressed: () => Scaffold.of(context).openDrawer(),
               ),
-              const SizedBox(height: 48),
-              _buildMenuButton(
-                context,
-                icon: Icons.add_circle_outline,
-                label: '새 게임 만들기',
-                description: '방을 만들고 친구를 초대하세요',
-                color: AppColors.police,
-                onTap: () {
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.person),
+                onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const RoomCreationWizard(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const MyRecordsScreen()),
                   );
                 },
-              ),
-              const SizedBox(height: 16),
-              _buildMenuButton(
-                context,
-                icon: Icons.login,
-                label: '게임 참가하기',
-                description: '방 코드로 게임에 참가하세요',
-                color: AppColors.thief,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const JoinRoomScreen()),
-                  );
-                },
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSmallButton(
-                      context,
-                      icon: Icons.bar_chart,
-                      label: '내 기록',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MyRecordsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildSmallButton(
-                      context,
-                      icon: Icons.settings,
-                      label: '설정',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SettingsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
-        ),
-      ),
+          drawer: _buildDrawer(context),
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryDark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.waving_hand,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '환영합니다, $nickname님',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+                  _buildMenuButton(
+                    context,
+                    icon: Icons.add_circle_outline,
+                    label: '새 게임 만들기',
+                    description: '방을 만들고 친구를 초대하세요',
+                    color: AppColors.police,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RoomCreationWizard(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMenuButton(
+                    context,
+                    icon: Icons.login,
+                    label: '게임 참가하기',
+                    description: '방 코드로 게임에 참가하세요',
+                    color: AppColors.thief,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const JoinRoomScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSmallButton(
+                          context,
+                          icon: Icons.bar_chart,
+                          label: '내 기록',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const MyRecordsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildSmallButton(
+                          context,
+                          icon: Icons.settings,
+                          label: '설정',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SettingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildDrawer(BuildContext context) {
+    final authService = context.read<AuthService>();
+    final nickname = authService.currentUser?.nickname ?? 'Guest';
     // Removed unused theme variable
     return Drawer(
       child: ListView(

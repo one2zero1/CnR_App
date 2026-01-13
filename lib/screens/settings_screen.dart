@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../theme/app_sizes.dart';
 import '../config/app_strings.dart';
 import '../providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/auth_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,7 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _captureNotification = true;
   bool _chatNotification = true;
   bool _powerSaveMode = false;
-  String _mapStyle = 'normal';
+  // String _mapStyle = 'normal'; // Removed
   double _gpsAccuracy = 0.5;
 
   @override
@@ -94,33 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
-          _buildSectionHeader(AppStrings.settingsMap),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSizes.paddingMedium,
-              vertical: AppSizes.paddingSmall,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  AppStrings.mapStyle,
-                  style: TextStyle(fontSize: 16, color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: AppSizes.spaceMedium),
-                Row(
-                  children: [
-                    _buildMapStyleButton(AppStrings.mapStyleNormal, 'normal'),
-                    const SizedBox(width: AppSizes.spaceMedium),
-                    _buildMapStyleButton(
-                      AppStrings.mapStyleSatellite,
-                      'satellite',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // _buildSectionHeader(AppStrings.settingsMap), // Removed Map Style Selection
           Padding(
             padding: const EdgeInsets.all(AppSizes.paddingMedium),
             child: Column(
@@ -275,65 +251,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildMapStyleButton(String label, String value) {
-    final isSelected = _mapStyle == value;
-    return Expanded(
-      child: Material(
-        color: isSelected ? AppColors.primary : AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-        elevation: isSelected ? 2 : 1,
-        child: InkWell(
-          onTap: () {
-            setState(() => _mapStyle = value);
-          },
-          borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              vertical: AppSizes.paddingMedium,
-            ), // Was 12, closest is medium 16 or small 8. 12 is AppSizes.spaceMedium. Using spaceMedium for padding is fine or use paddingMedium. Original was 12. Let's use paddingMedium (16) or create padding12? I'll use spaceMedium (12) for padding here or define a new one. AppSizes.spaceMedium is 12.0.
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? AppColors.surface : AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // _buildMapStyleButton removed
 
   void _showNicknameDialog() {
-    final controller = TextEditingController();
+    final authService = context.read<AuthService>();
+    final currentNickname = authService.currentUser?.nickname ?? '';
+    final controller = TextEditingController(text: currentNickname);
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(AppStrings.changeNicknameTitle),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: AppStrings.newNicknameHint,
-          ),
-          maxLength: 8,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(AppStrings.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text(AppStrings.nicknameChanged)),
-              );
-            },
-            child: const Text(AppStrings.change),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (context) {
+        bool isLoading = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text(AppStrings.changeNicknameTitle),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    enabled: !isLoading,
+                    decoration: const InputDecoration(
+                      hintText: AppStrings.newNicknameHint,
+                    ),
+                    maxLength: 8,
+                  ),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: CircularProgressIndicator(),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(context),
+                  child: const Text(AppStrings.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final newNickname = controller.text.trim();
+                          if (newNickname.isEmpty) return;
+
+                          setState(() => isLoading = true);
+
+                          try {
+                            await authService.updateProfile(
+                              nickname: newNickname,
+                            );
+
+                            // Save to SharedPreferences for auto-login
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString('KEY_NICKNAME', newNickname);
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(AppStrings.nicknameChanged),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setState(() => isLoading = false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${AppStrings.errorGeneric}: $e',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: const Text(AppStrings.change),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 import 'home_screen.dart';
 
 class NicknameScreen extends StatefulWidget {
@@ -13,6 +16,7 @@ class _NicknameScreenState extends State<NicknameScreen> {
   final TextEditingController _nicknameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isValid = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -27,12 +31,34 @@ class _NicknameScreenState extends State<NicknameScreen> {
     });
   }
 
-  void _onSubmit() {
+  Future<void> _onSubmit() async {
     if (_formKey.currentState!.validate()) {
-      final nickname = _nicknameController.text;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen(nickname: nickname)),
-      );
+      setState(() => _isLoading = true);
+      final nickname = _nicknameController.text.trim();
+
+      try {
+        // 1. Firebase Anonymous Login
+        final authService = context.read<AuthService>();
+        await authService.signInAnonymously(nickname);
+
+        // 2. Save nickname locally
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('KEY_NICKNAME', nickname);
+
+        if (!mounted) return;
+
+        // 3. Navigate to Home
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('로그인 실패: $e')));
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -105,17 +131,23 @@ class _NicknameScreenState extends State<NicknameScreen> {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: _isValid ? _onSubmit : null,
+                  onPressed: _isValid && !_isLoading ? _onSubmit : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: AppColors.textHint,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
-                    '시작하기',
-                    style: TextStyle(fontSize: 18),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('시작하기', style: TextStyle(fontSize: 18)),
                 ),
                 const SizedBox(height: 16),
                 Text(

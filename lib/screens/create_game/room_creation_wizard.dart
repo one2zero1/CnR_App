@@ -29,6 +29,8 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
   double _areaRadius = 300; // meters
   LatLng _centerPosition = const LatLng(37.5665, 126.9780); // Default Seoul
   LatLng? _jailPosition;
+  bool _isStep5Loading =
+      true; // Default to true as it starts loading immediately
 
   @override
   void dispose() {
@@ -37,6 +39,15 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
   }
 
   void _nextStep() {
+    FocusScope.of(context).unfocus(); // Dismiss keyboard
+
+    if (_currentStep == 4 && _isStep5Loading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('현재 위치를 불러오는 중입니다. 잠시만 기다려주세요.')),
+      );
+      return;
+    }
+
     if (_currentStep < _totalSteps - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -122,6 +133,17 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
                         _centerPosition = center;
                         _areaRadius = radius;
                       });
+                    },
+                    onLoadingStateChanged: (isLoading) {
+                      // Prevent setState if widget is unmounted or no change
+                      if (_isStep5Loading != isLoading) {
+                        // Using addPostFrameCallback to avoid build phase errors if called immediately
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() => _isStep5Loading = isLoading);
+                          }
+                        });
+                      }
                     },
                   ),
                   Step6Jail(

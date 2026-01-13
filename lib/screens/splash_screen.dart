@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 import 'tutorial_screen.dart';
+import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,23 +27,59 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const TutorialScreen()),
-        );
+    Future.delayed(const Duration(seconds: 2), _checkAutoLogin);
+  }
+
+  Future<void> _checkAutoLogin() async {
+    if (!mounted) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final nickname = prefs.getString('KEY_NICKNAME');
+
+      if (nickname != null && nickname.isNotEmpty) {
+        final authService = context.read<AuthService>();
+
+        // If not logged in, login anonymously with stored nickname
+        if (authService.currentUser == null) {
+          await authService.signInAnonymously(nickname);
+        } else if (authService.currentUser?.nickname != nickname) {
+          // If logged in but nickname differs (rare case or re-install), update it
+          try {
+            await authService.updateProfile(nickname: nickname);
+          } catch (_) {
+            // Ignore update error, just use what we have
+          }
+        }
+
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+          return;
+        }
       }
-    });
+    } catch (e) {
+      debugPrint('Auto-login failed: $e');
+    }
+
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const TutorialScreen()),
+      );
+    }
   }
 
   @override

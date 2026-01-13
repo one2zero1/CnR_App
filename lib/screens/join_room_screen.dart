@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
@@ -39,9 +40,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
 
         var user = authService.currentUser;
         if (user == null) {
-          user = await authService.signInAnonymously(
-            'Guest_${DateTime.now().second}',
-          );
+          final prefs = await SharedPreferences.getInstance();
+          final nickname =
+              prefs.getString('KEY_NICKNAME') ??
+              'Guest_${DateTime.now().second}';
+          user = await authService.signInAnonymously(nickname);
         }
 
         final roomId = await roomService.joinRoom(

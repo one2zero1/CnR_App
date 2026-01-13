@@ -96,16 +96,17 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
             markers: widget.playerMarkers.map((markerData) {
               return Marker(
                 point: markerData.position,
-                width: 40,
+                width: 100, // 텍스트 표시를 위해 너비 확장
                 height: 70,
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.location_on,
                       color: markerData.isPolice
                           ? AppColors.police
                           : AppColors.thief,
-                      size: 40,
+                      size: 36,
                     ),
                     if (markerData.nickname.isNotEmpty)
                       Container(
@@ -131,6 +132,9 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                                 : AppColors.thief,
                             fontWeight: FontWeight.bold,
                           ),
+                          textAlign: TextAlign.center,
+                          softWrap: false,
+                          overflow: TextOverflow.visible,
                         ),
                       ),
                   ],

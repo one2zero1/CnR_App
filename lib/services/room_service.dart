@@ -30,6 +30,7 @@ abstract class RoomService {
   Future<void> startGame(String roomId);
   Future<void> leaveRoom(String roomId, String uid);
   Future<void> endGame(String roomId, String hostId);
+  RoomModel? getRoom(String roomId);
 }
 
 class FirebaseRoomService implements RoomService {
@@ -65,8 +66,10 @@ class FirebaseRoomService implements RoomService {
             // JSON structure in DB should match what fromMap expects
             final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
-            // Debugging log (optional, remove in production)
-            // _logger.d('DEBUG: Room update for $roomId: ${data['session_info']['status']}');
+            // Debugging log
+            _logger.d(
+              'DEBUG: Room update for $roomId: ${data['session_info']?['status']} (Raw Data Available)',
+            );
 
             final room = RoomModel.fromMap(roomId, data);
             _lastKnownState[roomId] = room;
@@ -78,12 +81,52 @@ class FirebaseRoomService implements RoomService {
           } catch (e) {
             _logger.e('Error parsing room data for $roomId: $e');
           }
+        } else {
+          // Room node deleted -> Game Ended
+          _handleGameEndDetected(roomId, 'room_deleted');
         }
       },
       onError: (error) {
-        _logger.e('Firebase listener error for room $roomId: $error');
+        if (error.toString().contains('permission')) {
+          // Permission denied -> Game Ended (Host likely closed room)
+          _handleGameEndDetected(roomId, 'permission_denied_force_end');
+        } else {
+          _logger.e('Firebase listener error for room $roomId: $error');
+        }
       },
     );
+  }
+
+  void _handleGameEndDetected(String roomId, String reason) {
+    _logger.i('Game End Detected via $reason for room $roomId');
+    final currentRoom = _lastKnownState[roomId];
+
+    if (currentRoom != null) {
+      final endedSession = SessionInfo(
+        status: 'force_ended',
+        hostId: currentRoom.sessionInfo.hostId,
+        expiresAt: DateTime.now(),
+        pinCode: currentRoom.sessionInfo.pinCode,
+        forceEnd: ForceEnd(
+          endedBy: 'system',
+          endedAt: DateTime.now(),
+          reason: reason,
+        ),
+      );
+
+      final endedRoom = RoomModel(
+        roomId: roomId,
+        sessionInfo: endedSession,
+        participants: currentRoom.participants,
+        gameSystemRules: currentRoom.gameSystemRules,
+        convenienceFeatures: currentRoom.convenienceFeatures,
+      );
+
+      if (_roomControllers.containsKey(roomId) &&
+          !_roomControllers[roomId]!.isClosed) {
+        _roomControllers[roomId]!.add(endedRoom);
+      }
+    }
   }
 
   void _stopListening(String roomId) {
@@ -91,6 +134,11 @@ class FirebaseRoomService implements RoomService {
     _firebaseSubscriptions.remove(roomId);
     // We don't necessarily close the controller here as it might be listened to again
     // But usually onCancel means no one is listening.
+  }
+
+  @override
+  RoomModel? getRoom(String roomId) {
+    return _lastKnownState[roomId];
   }
 
   // --- HTTP Actions (Write) ---

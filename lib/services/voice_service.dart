@@ -232,17 +232,25 @@ class VoiceService {
     await _player.start();
 
     // Listen new events
-    _firebaseSubscription = ref.limitToLast(10).onChildAdded.listen((event) {
-      final val = event.snapshot.value;
-      if (val == null) return;
+    _firebaseSubscription = ref
+        .limitToLast(10)
+        .onChildAdded
+        .listen(
+          (event) {
+            final val = event.snapshot.value;
+            if (val == null) return;
 
-      try {
-        final data = Map<String, dynamic>.from(val as Map);
-        _onDataReceived(data, myTeam);
-      } catch (e) {
-        debugPrint('Error parsing voice data: $e');
-      }
-    });
+            try {
+              final data = Map<String, dynamic>.from(val as Map);
+              _onDataReceived(data, myTeam);
+            } catch (e) {
+              debugPrint('Error parsing voice data: $e');
+            }
+          },
+          onError: (error) {
+            debugPrint('Voice Service error (likely permission): $error');
+          },
+        );
   }
 
   void stopListening() {

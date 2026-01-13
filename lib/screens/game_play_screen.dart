@@ -55,6 +55,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   LatLng _currentPosition = const LatLng(37.5665, 126.9780);
   StreamSubscription<Position>? _positionStream;
   Stream<List<LiveStatusModel>>? _statusStream;
+  StreamSubscription<RoomModel>? _roomSubscription;
+  bool _isNavigating = false;
 
   String? _myId;
 
@@ -93,14 +95,58 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
     _statusStream = gamePlayService.getLiveStatusesStream(widget.roomId);
 
+    _startRoomListener();
     _remainingSeconds = widget.settings.gameDurationSec; // Init time limit
     _startTimer();
     _startLocationUpdates();
   }
 
+  void _startRoomListener() {
+    final roomService = context.read<RoomService>();
+    _roomSubscription = roomService.getRoomStream(widget.roomId).listen((room) {
+      if (_isNavigating) return;
+
+      debugPrint('DEBUG: Room status update -> ${room.sessionInfo.status}');
+
+      if (room.sessionInfo.status == 'force_ended' ||
+          room.sessionInfo.status == 'cleaning') {
+        debugPrint('DEBUG: Detected game end. Navigating away...');
+        _isNavigating = true;
+
+        // Disconnect voice before leaving
+        debugPrint('DEBUG: Stopping voice service...');
+        _voiceService.stopListening();
+        debugPrint('DEBUG: Voice service stopped. Pushing Navigation...');
+
+        // Logic to determine winner (Heuristic)
+        // If status is 'cleaning' and time remains > 0 -> Police Win (All captured)
+        // If status is 'cleaning' and time <= 0 -> Thief Win (Time over)
+        // Note: This is an estimation. Ideally backend should send result.
+        String? winner;
+        if (room.sessionInfo.status == 'cleaning') {
+          final isTimeOver = DateTime.now().isAfter(room.sessionInfo.expiresAt);
+          winner = isTimeOver ? 'Thief' : 'Police';
+        }
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => GameResultScreen(
+              gameName: widget.gameName,
+              isHostEnded: room.sessionInfo.status == 'force_ended',
+              winnerTeam: winner,
+            ),
+          ),
+        );
+      }
+    });
+  }
+
   @override
   void dispose() {
+    debugPrint('DEBUG: GamePlayScreen dispose called');
     _voiceService.stopListening();
+    _roomSubscription?.cancel();
     _speakingTimer?.cancel();
     _positionStream?.cancel();
     super.dispose();
@@ -427,38 +473,47 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   Widget _buildMapArea(bool isThief) {
-    return StreamBuilder<List<LiveStatusModel>>(
-      stream: _statusStream,
-      builder: (context, snapshot) {
-        final livePlayers = snapshot.data ?? [];
+    return StreamBuilder<RoomModel>(
+      initialData: context.read<RoomService>().getRoom(widget.roomId),
+      stream: context.read<RoomService>().getRoomStream(widget.roomId),
+      builder: (context, roomSnapshot) {
+        final participants = roomSnapshot.data?.participants ?? {};
 
-        // Convert to PlayerMarkerData
-        final markers = livePlayers.where((p) => p.uid != _myId).map((p) {
-          return PlayerMarkerData(
-            id: p.uid,
-            nickname:
-                'Player', // TODO: Fetch nicknames? LiveStatusModel doesn't have nickname yet.
-            position: p.position,
-            isPolice: p.role == TeamRole.police,
-          );
-        }).toList();
+        return StreamBuilder<List<LiveStatusModel>>(
+          stream: _statusStream,
+          builder: (context, snapshot) {
+            final livePlayers = snapshot.data ?? [];
 
-        return FlutterMapWidget(
-          initialPosition: _currentPosition,
-          overlayCenter: LatLng(
-            widget.settings.activityBoundary.centerLat,
-            widget.settings.activityBoundary.centerLng,
-          ),
-          jailPosition: LatLng(
-            widget.settings.prisonLocation.lat,
-            widget.settings.prisonLocation.lng,
-          ),
-          circleRadius: widget.settings.activityBoundary.radiusMeter.toDouble(),
-          showCircleOverlay: true,
-          showMyLocation: true,
-          playerMarkers: markers,
-          onMapTap: (point) {
-            debugPrint('Map tapped at: $point');
+            // Convert to PlayerMarkerData
+            final markers = livePlayers.where((p) => p.uid != _myId).map((p) {
+              final nickname = participants[p.uid]?.nickname ?? 'Unknown';
+              return PlayerMarkerData(
+                id: p.uid,
+                nickname: nickname,
+                position: p.position,
+                isPolice: p.role == TeamRole.police,
+              );
+            }).toList();
+
+            return FlutterMapWidget(
+              initialPosition: _currentPosition,
+              overlayCenter: LatLng(
+                widget.settings.activityBoundary.centerLat,
+                widget.settings.activityBoundary.centerLng,
+              ),
+              jailPosition: LatLng(
+                widget.settings.prisonLocation.lat,
+                widget.settings.prisonLocation.lng,
+              ),
+              circleRadius: widget.settings.activityBoundary.radiusMeter
+                  .toDouble(),
+              showCircleOverlay: true,
+              showMyLocation: true,
+              playerMarkers: markers,
+              onMapTap: (point) {
+                debugPrint('Map tapped at: $point');
+              },
+            );
           },
         );
       },

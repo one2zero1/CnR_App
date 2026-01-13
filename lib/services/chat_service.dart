@@ -32,20 +32,25 @@ class ChatService {
   Stream<List<ChatMessage>> getMessagesStream(String roomId) {
     final ref = _db.ref('chat_messages/$roomId').orderByChild('timestamp');
 
-    return ref.onValue.map((event) {
-      if (event.snapshot.value == null) return [];
+    return ref.onValue
+        .map((event) {
+          if (event.snapshot.value == null) return <ChatMessage>[];
 
-      final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
-      final messages = <ChatMessage>[];
+          final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+          final messages = <ChatMessage>[];
 
-      data.forEach((key, value) {
-        final map = Map<dynamic, dynamic>.from(value as Map);
-        messages.add(ChatMessage.fromMap(key, map));
-      });
+          data.forEach((key, value) {
+            final map = Map<dynamic, dynamic>.from(value as Map);
+            messages.add(ChatMessage.fromMap(key, map));
+          });
 
-      // 시간순 정렬
-      messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      return messages;
-    });
+          // 시간순 정렬
+          messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          return messages;
+        })
+        .handleError((error) {
+          // Permission denied might happen if game ends
+          return <ChatMessage>[];
+        });
   }
 }

@@ -75,6 +75,8 @@ class FirebaseGamePlayService implements GamePlayService {
         'timestamp': ServerValue.timestamp,
       });
     } catch (e) {
+      if (e.toString().contains('permission'))
+        return; // Ignore if permission denied
       _logger.e('Firebase update failed', error: e);
     }
   }
@@ -84,45 +86,54 @@ class FirebaseGamePlayService implements GamePlayService {
     _ensureRoleCache(roomId);
 
     final ref = FirebaseDatabase.instance.ref('live_status/$roomId');
-    return ref.onValue.map((event) {
-      final data = event.snapshot.value;
-      if (data == null) return [];
+    return ref.onValue
+        .map((event) {
+          final data = event.snapshot.value;
+          if (data == null) return <LiveStatusModel>[];
 
-      final Map<dynamic, dynamic> playersMap = data as Map<dynamic, dynamic>;
-      final List<LiveStatusModel> result = [];
+          final Map<dynamic, dynamic> playersMap =
+              data as Map<dynamic, dynamic>;
+          final List<LiveStatusModel> result = [];
 
-      playersMap.forEach((key, value) {
-        final uid = key.toString();
-        final playerRole = _roleCache[uid] ?? TeamRole.unassigned;
+          playersMap.forEach((key, value) {
+            final uid = key.toString();
+            final playerRole = _roleCache[uid] ?? TeamRole.unassigned;
 
-        // Data structure: {pos: {lat, lng, timestamp}, state: {...}?}
-        // If value has 'pos', use it. Else assume value is pos if structure is flat (it shouldn't be based on set)
-        final valMap = Map<String, dynamic>.from(value as Map);
-        final posMap = valMap['pos'] as Map?;
+            // Data structure: {pos: {lat, lng, timestamp}, state: {...}?}
+            // If value has 'pos', use it. Else assume value is pos if structure is flat (it shouldn't be based on set)
+            final valMap = Map<String, dynamic>.from(value as Map);
+            final posMap = valMap['pos'] as Map?;
 
-        if (posMap != null) {
-          final lat = (posMap['lat'] as num?)?.toDouble() ?? 0.0;
-          final lng = (posMap['lng'] as num?)?.toDouble() ?? 0.0;
+            if (posMap != null) {
+              final lat = (posMap['lat'] as num?)?.toDouble() ?? 0.0;
+              final lng = (posMap['lng'] as num?)?.toDouble() ?? 0.0;
 
-          // TODO: 'state' (captured) might need to come from elsewhere if not in live_status
-          // For now, assume default normal unless we find a 'state' node
-          final stateMap = valMap['state'] as Map?;
-          final isCaptured = stateMap?['is_captured'] == true;
+              // TODO: 'state' (captured) might need to come from elsewhere if not in live_status
+              // For now, assume default normal unless we find a 'state' node
+              final stateMap = valMap['state'] as Map?;
+              final isCaptured = stateMap?['is_captured'] == true;
 
-          result.add(
-            LiveStatusModel(
-              uid: uid,
-              role: playerRole,
-              position: LatLng(lat, lng),
-              state: isCaptured ? PlayerState.captured : PlayerState.normal,
-              lastPing: DateTime.now(), // Realtime
-            ),
-          );
-        }
-      });
+              result.add(
+                LiveStatusModel(
+                  uid: uid,
+                  role: playerRole,
+                  position: LatLng(lat, lng),
+                  state: isCaptured ? PlayerState.captured : PlayerState.normal,
+                  lastPing: DateTime.now(), // Realtime
+                ),
+              );
+            }
+          });
 
-      return result;
-    });
+          return result;
+        })
+        .handleError((error) {
+          if (error.toString().contains('permission')) {
+            _logger.w('Live status permission denied (Game ended?)');
+            return <LiveStatusModel>[];
+          }
+          throw error;
+        });
   }
 
   @override

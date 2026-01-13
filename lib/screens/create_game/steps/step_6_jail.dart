@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../theme/app_theme.dart';
 import '../../../models/game_types.dart';
 import '../../../models/room_model.dart';
@@ -71,7 +72,9 @@ class _Step6JailState extends State<Step6Jail> {
 
       var user = authService.currentUser;
       if (user == null) {
-        user = await authService.signInAnonymously('Host');
+        final prefs = await SharedPreferences.getInstance();
+        final nickname = prefs.getString('KEY_NICKNAME') ?? 'Host';
+        user = await authService.signInAnonymously(nickname);
       }
 
       final rules = GameSystemRules(

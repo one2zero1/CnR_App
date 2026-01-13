@@ -8,12 +8,14 @@ class Step5Area extends StatefulWidget {
   final LatLng initialCenter;
   final double initialRadius;
   final Function(LatLng center, double radius) onAreaChanged;
+  final ValueChanged<bool>? onLoadingStateChanged;
 
   const Step5Area({
     super.key,
     required this.initialCenter,
     required this.initialRadius,
     required this.onAreaChanged,
+    this.onLoadingStateChanged,
   });
 
   @override
@@ -38,6 +40,7 @@ class _Step5AreaState extends State<Step5Area> {
 
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoading = true);
+    widget.onLoadingStateChanged?.call(true);
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -59,6 +62,7 @@ class _Step5AreaState extends State<Step5Area> {
           }
           _isLoading = false;
         });
+        widget.onLoadingStateChanged?.call(false);
         if (widget.initialCenter.latitude == 37.5665 &&
             widget.initialCenter.longitude == 126.9780) {
           _moveToMyLocation();
@@ -66,11 +70,13 @@ class _Step5AreaState extends State<Step5Area> {
       } else {
         if (!mounted) return;
         setState(() => _isLoading = false);
+        widget.onLoadingStateChanged?.call(false);
       }
     } catch (e) {
       debugPrint('위치 가져오기 실패: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
+      widget.onLoadingStateChanged?.call(false);
     }
   }
 
