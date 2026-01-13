@@ -12,6 +12,7 @@ import '../models/room_model.dart';
 import '../services/auth_service.dart';
 import '../services/room_service.dart';
 import '../services/authority_service.dart';
+import '../utils/loading_util.dart'; // Import Loading Util
 
 class WaitingRoomScreen extends StatefulWidget {
   final String roomId; // 실제 Room UUID (API 통신용)
@@ -38,6 +39,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   String? _myId;
   final Map<String, TeamRole> _optimisticRoles = {}; // Optimistic UI state
   bool _isNavigating = false;
+  bool _isStartingGame =
+      false; // Flag to track if we are in "Starting Game" loading state
 
   @override
   void initState() {
@@ -85,9 +88,21 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
   Future<void> _startGame(RoomModel room) async {
     if (!widget.isHost) return;
 
+    // Show Loading
+    LoadingUtil.show(context, message: '게임을 시작하는 중...');
+    setState(() => _isStartingGame = true);
+
     try {
       await context.read<RoomService>().startGame(room.roomId);
+      // Success: Do NOT hide loading here.
+      // The stream update (status='playing') will trigger the navigation logic
+      // in build(), which will handle hiding the dialog.
     } catch (e) {
+      // Failure: Must hide loading and reset flag
+      if (mounted) {
+        LoadingUtil.hide(context);
+        setState(() => _isStartingGame = false);
+      }
       _showError('${AppStrings.startGameFailed}$e');
     }
   }
@@ -171,6 +186,13 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_isNavigating) return;
             _isNavigating = true;
+
+            // If we showed a loading dialog for game start, hide it now
+            if (_isStartingGame) {
+              LoadingUtil.hide(context);
+              // We don't necessarily need to set _isStartingGame = false since we are navigating away
+            }
+
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -384,13 +406,20 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                 padding: EdgeInsets.zero,
               ),
               const SizedBox(width: AppSizes.spaceMedium),
-              IconButton(
-                onPressed: () => _showQRCodeDialog(roomCode),
-                icon: const Icon(Icons.qr_code_2, color: AppColors.surface),
-                tooltip: AppStrings.viewQrTooltip,
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.surface.withOpacity(0.2),
-                  padding: const EdgeInsets.all(AppSizes.paddingSmall),
+              InkWell(
+                onTap: () => _showQRCodeDialog(roomCode),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.surface.withOpacity(0.5),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(Icons.qr_code, color: AppColors.surface),
                 ),
               ),
             ],

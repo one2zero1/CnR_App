@@ -123,22 +123,6 @@ class HomeScreen extends StatelessWidget {
                       Expanded(
                         child: _buildSmallButton(
                           context,
-                          icon: Icons.bar_chart,
-                          label: '내 기록',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const MyRecordsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildSmallButton(
-                          context,
                           icon: Icons.settings,
                           label: '설정',
                           onTap: () {

@@ -191,22 +191,35 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
                     Expanded(
                       flex: 2,
                       child: ElevatedButton(
-                        onPressed: _nextStep,
+                        onPressed: (_currentStep == 4 && _isStep5Loading)
+                            ? null
+                            : _nextStep,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
+                          disabledBackgroundColor:
+                              Colors.grey[300], // Explicit disabled color
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          '다음',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                        child: _currentStep == 4 && _isStep5Loading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                '다음',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
                       ),
                     ),
                 ],

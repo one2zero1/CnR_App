@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'waiting_room_screen.dart';
+import '../utils/loading_util.dart'; // Import Loading Util
 
 class GameResultScreen extends StatefulWidget {
   final String gameName;
@@ -184,12 +185,41 @@ class _GameResultScreenState extends State<GameResultScreen> {
               ),
             ),
           ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
-              );
+            onPressed: () async {
+              if (room != null) {
+                // Show Loading
+                LoadingUtil.show(context, message: '퇴장 처리 중...');
+
+                final user = context.read<AuthService>().currentUser;
+                // leaveRoom 호출
+                if (user != null) {
+                  try {
+                    await context.read<RoomService>().leaveRoom(
+                      room.roomId,
+                      user.uid,
+                    );
+                  } catch (e) {
+                    // 에러 무시 혹은 로그
+                    debugPrint('Error leaving room: $e');
+                    // Hide loading on error if we want to show error?
+                    // But we proceed to navigate anyway. Simple hide is safer.
+                    // Actually, since we pushReplacement, the dialog context might get messy if we don't hide?
+                    // No, pushAndRemoveUntil will remove all dialogs too.
+                    // But let's hide to be clean if error happens and we delay?
+                  }
+                }
+              }
+
+              if (context.mounted) {
+                // Clean up not strictly necessary if pushAndRemoveUntil is used, but good for safety.
+                // However, we can't hide() if we are about to navigate away which invalidates context?
+                // Actually pushAndRemoveUntil handles it.
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  (route) => false,
+                );
+              }
             },
             icon: const Icon(Icons.home),
             label: const Text('홈으로 이동'),

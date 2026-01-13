@@ -8,6 +8,8 @@ import '../widgets/flutter_map_widget.dart';
 import 'chat_screen.dart';
 import '../models/chat_model.dart'; // Import Chat Models
 import '../services/chat_service.dart'; // Import Chat Service
+import '../utils/toast_util.dart';
+import '../utils/loading_util.dart'; // Import Loading Util
 
 import '../models/game_types.dart';
 import '../models/room_model.dart'; // For GameSettings
@@ -18,6 +20,7 @@ import '../services/auth_service.dart';
 import '../services/voice_service.dart';
 import '../services/room_service.dart';
 import 'game_result_screen.dart';
+import 'home_screen.dart';
 
 class GamePlayScreen extends StatefulWidget {
   final TeamRole role;
@@ -147,63 +150,139 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   void _showEndGameDialog() {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('게임 종료 설정'),
-        content: const Text('게임을 어떻게 종료하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소', style: TextStyle(color: Colors.grey)),
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.stop_circle_outlined,
+                  color: Colors.orange,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                '게임 종료 설정',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '게임을 어떻게 종료하시겠습니까?\n모든 플레이어에게 영향이 갑니다.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 32),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(dialogContext); // Close menu dialog
+
+                      // Show Loading
+                      LoadingUtil.show(context, message: '게임을 다시 시작하는 중...');
+
+                      // Call restart API
+                      try {
+                        if (!mounted) return;
+                        await context.read<RoomService>().resetGame(
+                          widget.roomId,
+                          _myId!,
+                        );
+                        // Listener will handle navigation
+                      } catch (e) {
+                        // Hide loading on error
+                        if (mounted) LoadingUtil.hide(context);
+                        if (!mounted) return;
+                        ToastUtil.show(context, '다시 시작 실패: $e', isError: true);
+                      }
+                      // Note: On success, listener handles navigation, but we might want to hide loading?
+                      // Actually, if listener navigates away, hiding loading might be redundant but safe.
+                      // However, resetGame causes room status change -> listener -> navigation.
+                      // The loading dialog is part of the current context. Navigating away destroys it.
+                      // So we strictly only need to hide it on error.
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      '다시 시작',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(dialogContext); // Close menu dialog
+
+                      // Show Loading
+                      LoadingUtil.show(context, message: '게임을 종료하는 중...');
+
+                      // Call end API
+                      try {
+                        if (!mounted) return;
+                        await context.read<RoomService>().endGame(
+                          widget.roomId,
+                          _myId!,
+                        );
+                        // Listener will handle navigation
+                      } catch (e) {
+                        // Hide loading on error
+                        if (mounted) LoadingUtil.hide(context);
+                        if (!mounted) return;
+                        ToastUtil.show(context, '게임 종료 실패: $e', isError: true);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.danger,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      '완전 종료',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('취소'),
+                  ),
+                ],
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext); // Close dialog
-              // Call restart API
-              try {
-                if (!mounted) return;
-                await context.read<RoomService>().resetGame(
-                  widget.roomId,
-                  _myId!,
-                );
-                // Listener will handle navigation
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('다시 시작 실패: $e')));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('다시 시작'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext); // Close dialog
-              // Call end API
-              try {
-                if (!mounted) return;
-                await context.read<RoomService>().endGame(
-                  widget.roomId,
-                  _myId!,
-                );
-                // Listener will handle navigation
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('게임 종료 실패: $e')));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('완전 종료'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -283,13 +362,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     if (currentDistance > radius && !_showingExitWarning) {
       if (!widget.settings.activityBoundary.alertOnExit) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('경고: 활동 구역을 벗어났습니다!'),
-          duration: Duration(seconds: 2),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      ToastUtil.show(context, '경고: 활동 구역을 벗어났습니다!', isError: true);
 
       // TODO: 필요 시 서버에 이탈 로그 전송 (Direct DB Guide에 따르면 필수는 아님)
     }
@@ -896,18 +969,63 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   void _showGiveUpDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('게임 포기'),
-        content: const Text('정말 게임을 포기하시겠습니까?'),
+        content: const Text('정말 게임을 포기하시겠습니까?\n홈 화면으로 이동하며 방에서 퇴장합니다.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('아니요'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.of(context).popUntil((route) => route.isFirst);
+            onPressed: () async {
+              Navigator.pop(dialogContext); // Close dialog
+
+              // Show Loading
+              LoadingUtil.show(context, message: '퇴장 처리 중...');
+
+              // Capture services using the widget's context (safe if widget is mounted)
+              if (!mounted) return;
+              final roomService = context.read<RoomService>();
+
+              // 1. 방 퇴장 요청
+              try {
+                if (_myId != null) {
+                  await roomService.leaveRoom(widget.roomId, _myId!);
+                }
+              } catch (e) {
+                // Hide loading on error (though we force exit anyway)
+                if (mounted) {
+                  // LoadingUtil.hide(context); // We navigate away anyway, but explicit hide helps if Toast needs to be seen?
+                  // Actually, we process exit regardless of error usually?
+                  // Original code: showed toast on error, then navigated.
+                  LoadingUtil.hide(context);
+                  ToastUtil.show(
+                    context,
+                    '방 퇴장 중 오류가 발생했습니다: $e',
+                    isError: true,
+                  );
+                  // We should probably NOT continue to home if leave failed?
+                  // But typically user wants to force leave.
+                  // Let's stick to original logic: try leave, then go home.
+                  // Re-show loading or just keep it?
+                  // If we hide it to show Toast, we should probably not navigate immediately if we want user to see Toast.
+                  // But 'Show Loading' covers the screen.
+                  // Let's just catch, show toast, and continue.
+                }
+              }
+
+              // 2. 홈으로 이동
+              if (mounted) {
+                // No need to hide loading manually if we are replacing the route
+                // But cleaning up is good practice if pushAndRemoveUntil differs.
+                // pushAndRemoveUntil wipes everything.
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  (route) => false,
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('예'),
