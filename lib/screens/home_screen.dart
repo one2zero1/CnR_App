@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'create_game/room_creation_wizard.dart';
 import 'join_room_screen.dart';
-import 'my_records_screen.dart';
+
 import 'settings_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
@@ -29,17 +29,6 @@ class HomeScreen extends StatelessWidget {
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.person),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MyRecordsScreen()),
-                  );
-                },
-              ),
-            ],
           ),
           drawer: _buildDrawer(context),
           body: SafeArea(
@@ -117,26 +106,6 @@ class HomeScreen extends StatelessWidget {
                       );
                     },
                   ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildSmallButton(
-                          context,
-                          icon: Icons.settings,
-                          label: '설정',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SettingsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -183,17 +152,7 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.bar_chart),
-            title: const Text('내 기록'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MyRecordsScreen()),
-              );
-            },
-          ),
+
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('설정'),
@@ -275,41 +234,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               Icon(Icons.arrow_forward_ios, color: color, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.cardTheme.color, // Adaptive card color
-      borderRadius: BorderRadius.circular(12),
-      elevation: 1,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.onSurface, // Adaptive text
-                ),
-              ),
             ],
           ),
         ),
