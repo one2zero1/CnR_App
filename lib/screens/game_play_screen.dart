@@ -411,57 +411,60 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false, // 키보드 올라와도 배경 유지
-        body: Stack(
-          children: [
-            // 1. 지도 영역 (전체 화면)
-            Positioned.fill(child: _buildMapArea(isThief)),
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
+            children: [
+              // 1. 지도 영역 (전체 화면)
+              Positioned.fill(child: _buildMapArea(isThief)),
 
-            // 2. 어두운 오버레이 (키보드나 팝업 시 배경 강조용, 필요시 사용)
-            // ...
+              // 2. 어두운 오버레이 (키보드나 팝업 시 배경 강조용, 필요시 사용)
+              // ...
 
-            // 3. 상단 헤더 (Floating)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 16,
-              right: 16,
-              child: _buildHeader(isThief),
-            ),
+              // 3. 상단 헤더 (Floating)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 16,
+                right: 16,
+                child: _buildHeader(isThief),
+              ),
 
-            // 4. 채팅 오버레이 (좌측 하단)
-            Positioned(
-              left: 16,
-              bottom:
-                  100 + MediaQuery.of(context).viewInsets.bottom, // 키보드 위로 이동
-              child: _buildChatOverlay(),
-            ),
+              // 4. 채팅 오버레이 (좌측 하단)
+              Positioned(
+                left: 16,
+                bottom:
+                    100 + MediaQuery.of(context).viewInsets.bottom, // 키보드 위로 이동
+                child: _buildChatOverlay(),
+              ),
 
-            // 5. 하단 버튼/입력창 (Floating)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom:
-                  MediaQuery.of(context).padding.bottom +
-                  16 +
-                  MediaQuery.of(context).viewInsets.bottom, // 키보드 위로 이동
-              child: _buildBottomButtons(isThief),
-            ),
+              // 5. 하단 버튼/입력창 (Floating)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom:
+                    MediaQuery.of(context).padding.bottom +
+                    16 +
+                    MediaQuery.of(context).viewInsets.bottom, // 키보드 위로 이동
+                child: _buildBottomButtons(isThief),
+              ),
 
-            // 6. 기타 플로팅 버튼들
-            if (_showingLocationAlert)
-              Positioned.fill(child: _buildLocationAlert()),
-            if (_speakingNickname != null) _buildVoiceOverlay(),
-            if (isThief) _buildCaughtButton(),
-            _buildVoiceButton(isThief),
-            _buildChatScreenButton(isThief), // 채팅 버튼 분리
-          ],
-        ),
-      ),
-    );
+              // 6. 기타 플로팅 버튼들
+              if (_showingLocationAlert)
+                Positioned.fill(child: _buildLocationAlert()),
+              if (_speakingNickname != null) _buildVoiceOverlay(),
+              if (isThief) _buildCaughtButton(),
+              _buildVoiceButton(isThief),
+              _buildChatScreenButton(isThief), // 채팅 버튼 분리
+            ],
+          ), // Stack
+        ), // GestureDetector
+      ), // Scaffold
+    ); // PopScope
   }
 
   Widget _buildChatScreenButton(bool isThief) {
     return Positioned(
-      bottom: 140 + MediaQuery.of(context).viewInsets.bottom, // 키보드 올라오면 같이 이동
+      bottom: 90 + MediaQuery.of(context).viewInsets.bottom, // 키보드 대응 및 위치 조정
       right: 16,
       child: GestureDetector(
         onTap: () {
@@ -622,15 +625,20 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
             final livePlayers = snapshot.data ?? [];
 
             // Convert to PlayerMarkerData
-            final markers = livePlayers.where((p) => p.uid != _myId).map((p) {
-              final nickname = participants[p.uid]?.nickname ?? 'Unknown';
-              return PlayerMarkerData(
-                id: p.uid,
-                nickname: nickname,
-                position: p.position,
-                isPolice: p.role == TeamRole.police,
-              );
-            }).toList();
+            final markers = livePlayers
+                .where(
+                  (p) => p.uid != _myId && p.role == widget.role,
+                ) // 같은 팀만 표시
+                .map((p) {
+                  final nickname = participants[p.uid]?.nickname ?? 'Unknown';
+                  return PlayerMarkerData(
+                    id: p.uid,
+                    nickname: nickname,
+                    position: p.position,
+                    isPolice: p.role == TeamRole.police,
+                  );
+                })
+                .toList();
 
             return FlutterMapWidget(
               initialPosition: _currentPosition,
@@ -648,6 +656,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               showMyLocation: true,
               playerMarkers: markers,
               onMapTap: (point) {
+                FocusScope.of(context).unfocus();
                 debugPrint('Map tapped at: $point');
               },
             );
@@ -1038,7 +1047,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
   Widget _buildVoiceButton(bool isThief) {
     return Positioned(
-      bottom: 220,
+      bottom: 160 + MediaQuery.of(context).viewInsets.bottom, // 키보드 대응 및 위치 조정
       right: 16,
       child: Listener(
         onPointerDown: (_) {

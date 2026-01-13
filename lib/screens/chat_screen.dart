@@ -37,6 +37,7 @@ class _ChatScreenState extends State<ChatScreen>
   late TabController _tabController;
   // Current intended send target (defaults based on Tab or isTeamChat)
   ChatType _currentType = ChatType.global;
+  late Stream<List<ChatMessage>> _messagesStream;
 
   @override
   void initState() {
@@ -66,6 +67,11 @@ class _ChatScreenState extends State<ChatScreen>
     } else {
       _currentType = ChatType.global;
     }
+
+    // Initialize stream once to avoid repeated subscriptions on rebuilds
+    _messagesStream = context.read<ChatService>().getMessagesStream(
+      widget.roomId,
+    );
   }
 
   Future<void> _sendMessage() async {
@@ -150,53 +156,54 @@ class _ChatScreenState extends State<ChatScreen>
               )
             : null,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<List<ChatMessage>>(
-              stream: context.read<ChatService>().getMessagesStream(
-                widget.roomId,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          children: [
+            Expanded(
+              child: StreamBuilder<List<ChatMessage>>(
+                stream: _messagesStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final allMessages = snapshot.data!;
+
+                  if (widget.enableTeamChat) {
+                    return TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildMessageList(
+                          allMessages,
+                          ChatType.global,
+                          primaryColor,
+                        ),
+                        _buildMessageList(
+                          allMessages,
+                          ChatType.team,
+                          primaryColor,
+                        ),
+                      ],
+                    );
+                  } else {
+                    return _buildMessageList(
+                      allMessages,
+                      ChatType.global,
+                      primaryColor,
+                    );
+                  }
+                },
               ),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final allMessages = snapshot.data!;
-
-                if (widget.enableTeamChat) {
-                  return TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildMessageList(
-                        allMessages,
-                        ChatType.global,
-                        primaryColor,
-                      ),
-                      _buildMessageList(
-                        allMessages,
-                        ChatType.team,
-                        primaryColor,
-                      ),
-                    ],
-                  );
-                } else {
-                  return _buildMessageList(
-                    allMessages,
-                    ChatType.global,
-                    primaryColor,
-                  );
-                }
-              },
             ),
-          ),
-          _buildInputArea(primaryColor),
-        ],
-      ),
-    );
+            _buildInputArea(primaryColor),
+          ],
+        ), // Column
+      ), // GestureDetector
+    ); // Scaffold
   }
 
   Widget _buildMessageList(
@@ -217,14 +224,23 @@ class _ChatScreenState extends State<ChatScreen>
     // Reverse for ListView
     final reversedMessages = filteredMessages.reversed.toList();
 
-    return ListView.builder(
-      controller: type == _currentType ? _scrollController : null,
-      reverse: true, // Start from bottom
-      padding: const EdgeInsets.all(16),
-      itemCount: reversedMessages.length,
-      itemBuilder: (context, index) {
-        return _buildMessageBubble(reversedMessages[index], primaryColor);
-      },
+    // Background color logic
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = (type == ChatType.team)
+        ? primaryColor.withOpacity(isDark ? 0.15 : 0.05)
+        : Theme.of(context).scaffoldBackgroundColor;
+
+    return Container(
+      color: backgroundColor,
+      child: ListView.builder(
+        controller: type == _currentType ? _scrollController : null,
+        reverse: true, // Start from bottom
+        padding: const EdgeInsets.all(16),
+        itemCount: reversedMessages.length,
+        itemBuilder: (context, index) {
+          return _buildMessageBubble(reversedMessages[index], primaryColor);
+        },
+      ),
     );
   }
 
