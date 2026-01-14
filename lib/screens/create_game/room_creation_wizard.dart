@@ -8,6 +8,7 @@ import 'steps/step_3_interval.dart';
 import 'steps/step_4_roles.dart';
 import 'steps/step_5_area.dart';
 import 'steps/step_6_jail.dart';
+import 'steps/step_0_game_mode.dart';
 
 class RoomCreationWizard extends StatefulWidget {
   const RoomCreationWizard({super.key});
@@ -19,12 +20,15 @@ class RoomCreationWizard extends StatefulWidget {
 class _RoomCreationWizardState extends State<RoomCreationWizard> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
-  final int _totalSteps = 6;
+  final int _totalSteps = 7;
 
   // Game Settings State
+  GameMode _gameMode = GameMode.basic;
   String _gameName = '';
   double _playTime = 30; // minutes
   double _locationInterval = 3; // minutes
+  bool _policeCanSeeThieves = true;
+  bool _thievesCanSeePolice = false;
   RoleAssignmentMethod _roleMethod = RoleAssignmentMethod.manual;
   double _areaRadius = 300; // meters
   LatLng _centerPosition = const LatLng(37.5665, 126.9780); // Default Seoul
@@ -41,7 +45,7 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
   void _nextStep() {
     FocusScope.of(context).unfocus(); // Dismiss keyboard
 
-    if (_currentStep == 4 && _isStep5Loading) {
+    if (_currentStep == 5 && _isStep5Loading) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('현재 위치를 불러오는 중입니다. 잠시만 기다려주세요.')),
       );
@@ -106,6 +110,10 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
                 physics: const NeverScrollableScrollPhysics(), // Disable swipe
                 onPageChanged: _onStepChanged,
                 children: [
+                  Step0GameMode(
+                    selectedMode: _gameMode,
+                    onModeChanged: (value) => setState(() => _gameMode = value),
+                  ),
                   Step1Name(
                     initialName: _gameName,
                     onNameChanged: (value) => setState(() => _gameName = value),
@@ -118,6 +126,12 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
                     initialInterval: _locationInterval,
                     onIntervalChanged: (value) =>
                         setState(() => _locationInterval = value),
+                    policeCanSeeThieves: _policeCanSeeThieves,
+                    onPoliceVisibilityChanged: (value) =>
+                        setState(() => _policeCanSeeThieves = value),
+                    thievesCanSeePolice: _thievesCanSeePolice,
+                    onThiefVisibilityChanged: (value) =>
+                        setState(() => _thievesCanSeePolice = value),
                   ),
                   Step4Roles(
                     initialMethod: _roleMethod,
@@ -146,9 +160,12 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
                     },
                   ),
                   Step6Jail(
+                    gameMode: _gameMode,
                     gameName: _gameName.isEmpty ? '새 게임' : _gameName,
                     playTime: _playTime.toInt(),
                     locationInterval: _locationInterval.toInt(),
+                    policeCanSeeThieves: _policeCanSeeThieves,
+                    thievesCanSeePolice: _thievesCanSeePolice,
                     roleMethod: _roleMethod,
                     centerPosition: _centerPosition,
                     radius: _areaRadius.toInt(),
@@ -190,7 +207,7 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
                     Expanded(
                       flex: 2,
                       child: ElevatedButton(
-                        onPressed: (_currentStep == 4 && _isStep5Loading)
+                        onPressed: (_currentStep == 5 && _isStep5Loading)
                             ? null
                             : _nextStep,
                         style: ElevatedButton.styleFrom(
@@ -202,7 +219,7 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: _currentStep == 4 && _isStep5Loading
+                        child: _currentStep == 5 && _isStep5Loading
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,

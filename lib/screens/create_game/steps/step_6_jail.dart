@@ -13,8 +13,11 @@ import '../../../../utils/loading_util.dart'; // Import Loading Util
 
 class Step6Jail extends StatefulWidget {
   final String gameName;
+  final GameMode gameMode;
   final int playTime;
   final int locationInterval;
+  final bool policeCanSeeThieves;
+  final bool thievesCanSeePolice;
   final RoleAssignmentMethod roleMethod;
   final LatLng centerPosition;
   final int radius;
@@ -24,8 +27,11 @@ class Step6Jail extends StatefulWidget {
   const Step6Jail({
     super.key,
     required this.gameName,
+    required this.gameMode,
     required this.playTime,
     required this.locationInterval,
+    required this.policeCanSeeThieves,
+    required this.thievesCanSeePolice,
     required this.roleMethod,
     required this.centerPosition,
     required this.radius,
@@ -80,6 +86,7 @@ class _Step6JailState extends State<Step6Jail> {
       }
 
       final rules = GameSystemRules(
+        gameMode: widget.gameMode.name,
         gameDurationSec: (widget.playTime * 60).toInt(),
         minPlayers: 4,
         maxPlayers: 10,
@@ -100,8 +107,8 @@ class _Step6JailState extends State<Step6Jail> {
         locationPolicy: LocationPolicy(
           revealMode: 'always',
           isGpsHighAccuracy: true,
-          policeCanSeeThieves: true,
-          thievesCanSeePolice: false,
+          policeCanSeeThieves: widget.policeCanSeeThieves,
+          thievesCanSeePolice: widget.thievesCanSeePolice,
           revealIntervalSec: (widget.locationInterval * 60).toInt(),
         ),
         captureRules: CaptureRules(

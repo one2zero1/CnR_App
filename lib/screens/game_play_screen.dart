@@ -10,6 +10,9 @@ import '../models/chat_model.dart'; // Import Chat Models
 import '../services/chat_service.dart'; // Import Chat Service
 import '../utils/toast_util.dart';
 import '../utils/loading_util.dart'; // Import Loading Util
+import '../config/app_strings.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/game_types.dart';
 import '../models/room_model.dart'; // For GameSettings
@@ -43,11 +46,10 @@ class GamePlayScreen extends StatefulWidget {
 }
 
 class _GamePlayScreenState extends State<GamePlayScreen> {
-  int _remainingSeconds = 600; // Will be init in initState
-  int _nextRevealSeconds = 180; // 3분
+  int _remainingSeconds = 600;
+  int _nextRevealSeconds = 0; // 초기화는 initState에서
   bool _showingLocationAlert = false;
-  bool _isTalking = false; // 무전기 상태 (PTT)
-  int _myCaptureCount = 0;
+  bool _isTalking = false;
 
   // 채팅 관련
   final TextEditingController _chatController = TextEditingController();
@@ -59,10 +61,17 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   Stream<List<LiveStatusModel>>? _statusStream;
   StreamSubscription<RoomModel>? _roomSubscription;
   bool _isNavigating = false;
+  RoomModel? _cachedRoom;
+  int _capturedThieves = 0;
+  int _totalThieves = 0;
+  StreamSubscription<List<LiveStatusModel>>? _statusSubscription;
+  List<LiveStatusModel> _latestStatuses = []; // Cache for snapshots
+  Map<String, LatLng> _visibleOpponentLocations = {}; // Snapshot data
+  bool _hasInitialSnapshot = false;
 
   String? _myId;
 
-  // Voice Chat Overlay State
+  // ... (Voice Chat state remains same) ...
   String? _speakingNickname;
   Timer? _speakingTimer;
   late final VoiceService _voiceService;
@@ -95,10 +104,81 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       }
     });
 
-    _statusStream = gamePlayService.getLiveStatusesStream(widget.roomId);
+    // Broadcast stream to allow multiple listeners (Map + Logic)
+    _statusStream = gamePlayService
+        .getLiveStatusesStream(widget.roomId)
+        .asBroadcastStream();
+
+    // Listen for Captured Count Updates & My Status & Cache
+    _statusSubscription = _statusStream!.listen((statuses) {
+      if (!mounted) return;
+
+      _latestStatuses = statuses;
+
+      // Initial Snapshot Logic
+      final interval = widget.settings.locationPolicy.revealIntervalSec ?? 0;
+      if (interval > 0 && !_hasInitialSnapshot && statuses.isNotEmpty) {
+        _updateOpponentSnapshots();
+        _hasInitialSnapshot = true;
+      }
+
+      final captured = statuses
+          .where(
+            (s) => s.role == TeamRole.thief && s.state == PlayerState.captured,
+          )
+          .length;
+
+      if (_capturedThieves != captured) {
+        setState(() {
+          _capturedThieves = captured;
+        });
+      }
+
+      // Check My Status (Auto Navigate to Jail if Captured)
+      if (_myId != null && widget.role == TeamRole.thief) {
+        try {
+          final myStatus = statuses.firstWhere((s) => s.uid == _myId);
+
+          if (myStatus.state == PlayerState.captured) {
+            _statusSubscription?.cancel();
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MoveToJailScreen(
+                    jailPosition: LatLng(
+                      widget.settings.prisonLocation.lat,
+                      widget.settings.prisonLocation.lng,
+                    ),
+                    roomId: widget.roomId,
+                    role: widget.role,
+                    settings: widget.settings,
+                  ),
+                ),
+              );
+            }
+          }
+        } catch (_) {
+          // Me not in list yet
+        }
+      }
+    });
+
+    // Initial Cache & Total Count
+    _cachedRoom = context.read<RoomService>().getRoom(widget.roomId);
+    if (_cachedRoom != null) {
+      _totalThieves = _cachedRoom!.participants.values
+          .where((p) => p.team == TeamRole.thief.name)
+          .length;
+    }
 
     _startRoomListener();
     _remainingSeconds = widget.settings.gameDurationSec; // Init time limit
+
+    // Init Interval Timer
+    final interval = widget.settings.locationPolicy.revealIntervalSec ?? 0;
+    _nextRevealSeconds = interval > 0 ? interval : 0;
+
     _startTimer();
     _startLocationUpdates();
   }
@@ -106,6 +186,17 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   void _startRoomListener() {
     final roomService = context.read<RoomService>();
     _roomSubscription = roomService.getRoomStream(widget.roomId).listen((room) {
+      if (mounted) {
+        final total = room.participants.values
+            .where((p) => p.team == TeamRole.thief.name)
+            .length;
+
+        setState(() {
+          _cachedRoom = room;
+          _totalThieves = total;
+        });
+      }
+
       if (_isNavigating) return;
 
       debugPrint('DEBUG: Room status update -> ${room.sessionInfo.status}');
@@ -130,7 +221,9 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
         }
 
         if (mounted) {
-          Navigator.pushReplacement(
+          // 다이얼로그나 오버레이 등 모든 라우트를 정리하고 결과 화면으로 이동
+          // 홈 하 화면(root)만 남기고 다 제거 후 결과 화면 push
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
               builder: (_) => GameResultScreen(
@@ -140,6 +233,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 roomId: widget.roomId,
               ),
             ),
+            (route) => route.isFirst,
           );
         }
       }
@@ -291,6 +385,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     debugPrint('DEBUG: GamePlayScreen dispose called');
     _voiceService.stopListening();
     _roomSubscription?.cancel();
+    _statusSubscription?.cancel();
     _speakingTimer?.cancel();
     _positionStream?.cancel();
     super.dispose();
@@ -372,15 +467,57 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       if (mounted && _remainingSeconds > 0) {
         setState(() {
           _remainingSeconds--;
-          _nextRevealSeconds--;
-          if (_nextRevealSeconds <= 0) {
-            _showLocationReveal();
-            _nextRevealSeconds = 180;
+
+          final interval =
+              widget.settings.locationPolicy.revealIntervalSec ?? 0;
+          if (interval > 0) {
+            _nextRevealSeconds--;
+            if (_nextRevealSeconds <= 0) {
+              _updateOpponentSnapshots();
+              _showLocationReveal();
+              _nextRevealSeconds = interval;
+            }
           }
         });
         _startTimer();
       }
     });
+  }
+
+  void _updateOpponentSnapshots() {
+    if (_latestStatuses.isEmpty) return;
+
+    final newSnapshots = <String, LatLng>{};
+    for (final s in _latestStatuses) {
+      if (s.uid == _myId) continue;
+      if (s.role != widget.role) {
+        newSnapshots[s.uid] = s.position;
+      }
+    }
+
+    // 이 메서드는 Timer나 Listener 내부의 setState에서 호출되므로
+    // 별도의 setState 호출이 필요 없거나, 호출된 문맥에 따라 다름.
+    // Timer에서는 setState 내부이므로 그냥 변수 할당만 해도 됨.
+    // Listener에서는 외부이므로 setState 필요.
+    // 안전하게, 호출처에서 setState를 하거나,
+    // 여기서 setState를 할 때 mounted 체크 필요.
+    // 현재 구조상 Timer -> setState -> call function 이므로 변수 업데이트만 하면 됨.
+    // Listener -> call function 이므로 거기서는 setState 필요하지 않을까?
+    // Listener 코드:
+    // _updateOpponentSnapshots();
+    // _hasInitialSnapshot = true;
+    // 그리고 Listener는 setState 내부는 아님.
+
+    // 따라서 여기서 setState를 하는게 안전하지만, Timer 내부 호출 시 중복 setState 이슈가 있을 수 있음.
+    // 하지만 setState는 중첩 호출되어도 에러나지 않음 (단, build 동안 호출되면 에러).
+    // Timer 구조: setState( () { ... call ... } )
+    // 여기서 또 setState를 부르면 안됨!
+
+    // Strategy: Just update the map reference here.
+    // The caller (Timer/Listener) is responsible for triggering rebuild if needed.
+    // BUT! Listener didn't wrapping it in setState.
+
+    _visibleOpponentLocations = newSnapshots;
   }
 
   void _showLocationReveal() {
@@ -449,10 +586,10 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               ),
 
               // 6. 기타 플로팅 버튼들
-              if (_showingLocationAlert)
-                Positioned.fill(child: _buildLocationAlert()),
+              if (_showingLocationAlert) _buildLocationAlert(),
               if (_speakingNickname != null) _buildVoiceOverlay(),
-              if (isThief) _buildCaughtButton(),
+              if (widget.settings.gameMode == 'advanced')
+                if (isThief) _buildCaughtButton() else _buildArrestButton(),
               _buildVoiceButton(isThief),
               _buildChatScreenButton(isThief), // 채팅 버튼 분리
             ],
@@ -572,7 +709,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '$_myCaptureCount/3', // TODO: 연동
+                    '$_capturedThieves/$_totalThieves',
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontWeight: FontWeight.bold,
@@ -626,15 +763,49 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
 
             // Convert to PlayerMarkerData
             final markers = livePlayers
-                .where(
-                  (p) => p.uid != _myId && p.role == widget.role,
-                ) // 같은 팀만 표시
+                .where((p) {
+                  if (p.uid == _myId) return false;
+
+                  // 1. 같은 팀이면 무조건 표시
+                  if (p.role == widget.role) return true;
+
+                  // 2. 상대 팀이면 설정에 따라 표시
+                  final policy = widget.settings.locationPolicy;
+                  bool canSee = false;
+                  if (widget.role == TeamRole.police) {
+                    canSee = policy.policeCanSeeThieves;
+                  } else {
+                    canSee = policy.thievesCanSeePolice;
+                  }
+
+                  if (!canSee) return false;
+
+                  // 3. 주기적 공개 모드일 경우, 스냅샷 데이터가 없으면 표시 안 함
+                  final interval = policy.revealIntervalSec ?? 0;
+                  if (interval > 0) {
+                    return _visibleOpponentLocations.containsKey(p.uid);
+                  }
+
+                  return true;
+                })
                 .map((p) {
                   final nickname = participants[p.uid]?.nickname ?? 'Unknown';
+
+                  // 위치 결정 (상대팀 & 주기적 공개면 스냅샷 사용)
+                  LatLng displayPos = p.position;
+                  if (p.role != widget.role) {
+                    final interval =
+                        widget.settings.locationPolicy.revealIntervalSec ?? 0;
+                    if (interval > 0 &&
+                        _visibleOpponentLocations.containsKey(p.uid)) {
+                      displayPos = _visibleOpponentLocations[p.uid]!;
+                    }
+                  }
+
                   return PlayerMarkerData(
                     id: p.uid,
                     nickname: nickname,
-                    position: p.position,
+                    position: displayPos,
                     isPolice: p.role == TeamRole.police,
                   );
                 })
@@ -835,29 +1006,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     );
   }
 
-  Widget _buildLocationAlert() {
-    return Container(
-      color: AppColors.danger.withOpacity(0.8),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.warning, color: Colors.white, size: 80),
-            SizedBox(height: 16),
-            Text(
-              '🚨 위치가 공개되었습니다!',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showGameMenu(BuildContext context, bool isThief) {
     showDialog(
       context: context,
@@ -925,55 +1073,144 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     );
   }
 
-  void _showCaughtDialog() {
+  void _showCaughtQrDialog() {
+    if (_myId == null) return;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('정말 잡혔나요?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                AppStrings.caughtQrTitle,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: 200,
+                height: 200,
+                color: Colors.white,
+                child: QrImageView(
+                  data: _myId!,
+                  version: QrVersions.auto,
+                  gapless: false,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                AppStrings.caughtQrDesc,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(AppStrings.close),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showArrestScanner() {
+    showDialog(
+      context: context,
+      useSafeArea: false,
+      builder: (dialogContext) => Dialog(
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.black,
+        child: Stack(
           children: [
-            const Text('경찰에게 터치당하셨나요?'),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(labelText: '잡은 경찰 선택'),
-              items: const [
-                DropdownMenuItem(value: 'police1', child: Text('경찰1')),
-                DropdownMenuItem(value: 'police2', child: Text('경찰2')),
-              ],
-              onChanged: (value) {},
+            MobileScanner(
+              onDetect: (capture) {
+                final List<Barcode> barcodes = capture.barcodes;
+                for (final barcode in barcodes) {
+                  final String? code = barcode.rawValue;
+                  if (code != null) {
+                    Navigator.pop(dialogContext);
+                    _handleArrest(code);
+                    break;
+                  }
+                }
+              },
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 20,
+              left: 0,
+              right: 0,
+              child: Column(
+                children: const [
+                  Text(
+                    AppStrings.scanQrTitle,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    AppStrings.scanQrGuide,
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 20,
+              left: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.pop(dialogContext),
+              ),
+            ),
+            // Center scanning area visualization
+            Center(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.police, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('아니요, 취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MoveToJailScreen(
-                    jailPosition: LatLng(
-                      widget.settings.prisonLocation.lat,
-                      widget.settings.prisonLocation.lng,
-                    ),
-                    roomId: widget.roomId,
-                    role: widget.role,
-                    settings: widget.settings, // Passing rules
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('예, 잡혔어요'),
-          ),
-        ],
       ),
     );
+  }
+
+  Future<void> _handleArrest(String targetId) async {
+    if (_myId == null) return;
+
+    LoadingUtil.show(context, message: AppStrings.checkingResult);
+
+    try {
+      final success = await context.read<GamePlayService>().attemptCapture(
+        roomId: widget.roomId,
+        policeId: _myId!,
+        targetThiefId: targetId,
+      );
+
+      if (mounted) LoadingUtil.hide(context);
+
+      if (success) {
+        if (mounted) ToastUtil.show(context, AppStrings.arrestSuccess);
+      } else {
+        if (mounted)
+          ToastUtil.show(context, AppStrings.arrestFail, isError: true);
+      }
+    } catch (e) {
+      if (mounted) LoadingUtil.hide(context);
+      if (mounted) ToastUtil.show(context, '오류: $e', isError: true);
+    }
   }
 
   void _showGiveUpDialog() {
@@ -1133,12 +1370,71 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
     );
   }
 
+  Widget _buildLocationAlert() {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 150, // 헤더 및 버튼 아래로 이동
+      left: 0,
+      right: 0,
+      child: Center(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) {
+            return Transform.translate(
+              offset: Offset(0, -20 * (1 - value)),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.refresh, color: Colors.white, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        '상대방 위치 정보 갱신됨',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildCaughtButton() {
     return Positioned(
       top: MediaQuery.of(context).padding.top + 80, // 헤더 아래 적절한 위치
       right: 16,
       child: GestureDetector(
-        onTap: _showCaughtDialog,
+        onTap: _showCaughtQrDialog,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -1159,6 +1455,45 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               SizedBox(width: 8),
               Text(
                 '잡혔어요',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArrestButton() {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 80,
+      right: 16,
+      child: GestureDetector(
+        onTap: _showArrestScanner,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.police,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.qr_code_scanner, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                AppStrings.arrestButton,
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,

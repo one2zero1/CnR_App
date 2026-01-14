@@ -115,4 +115,14 @@ class AppStrings {
 
   // Tooltips
   static const String tooltipAdmin = '방장';
+
+  // Thief Catching
+  static const String caughtQrTitle = '체포 확인 QR';
+  static const String caughtQrDesc = '경찰에게 이 코드를 보여주세요';
+  static const String arrestButton = '검거하기';
+  static const String scanQrTitle = '도둑 QR 스캔';
+  static const String scanQrGuide = '도둑의 QR 코드를 사각형 안에 비추세요';
+  static const String arrestSuccess = '검거 성공!';
+  static const String arrestFail = '검거 실패. 다시 시도해주세요.';
+  static const String checkingResult = '확인 중...';
 }

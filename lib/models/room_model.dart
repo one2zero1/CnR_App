@@ -177,6 +177,7 @@ class GameSystemRules {
   final CaptureRules captureRules;
   final ReleaseRules releaseRules;
   final VictoryConditions victoryConditions;
+  final String gameMode; // 'basic', 'advanced'
 
   GameSystemRules({
     required this.gameDurationSec,
@@ -190,6 +191,7 @@ class GameSystemRules {
     required this.captureRules,
     required this.releaseRules,
     required this.victoryConditions,
+    this.gameMode = 'basic',
   });
 
   factory GameSystemRules.fromMap(Map<String, dynamic> data) {
@@ -229,6 +231,7 @@ class GameSystemRules {
             ? Map<String, dynamic>.from(data['victory_conditions'] as Map)
             : {},
       ),
+      gameMode: data['game_mode'] as String? ?? 'basic',
     );
   }
 
@@ -245,6 +248,7 @@ class GameSystemRules {
       'capture_rules': captureRules.toMap(),
       'release_rules': releaseRules.toMap(),
       'victory_conditions': victoryConditions.toMap(),
+      'game_mode': gameMode,
     };
   }
 }

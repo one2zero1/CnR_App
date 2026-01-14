@@ -167,6 +167,7 @@ class FirebaseRoomService implements RoomService {
       "max_players": rules.maxPlayers,
       "police_count": rules.policeCount,
       "role_assignment_mode": rules.roleAssignmentMode,
+      "game_mode": rules.gameMode,
 
       // Activity Boundary
       "center_lat": rules.activityBoundary.centerLat,

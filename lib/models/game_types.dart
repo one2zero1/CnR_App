@@ -28,3 +28,8 @@ enum RoleAssignmentMethod {
   host, // 지정
   random, // 랜덤
 }
+
+enum GameMode {
+  basic, // 일반 모드 (추격전)
+  advanced, // 고급 모드 (작전 모드)
+}
