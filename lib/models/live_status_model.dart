@@ -22,8 +22,8 @@ class LiveStatusModel {
 
     // PlayerState 판단 로직
     PlayerState playerState = PlayerState.normal;
-    if (stateInfo['is_captured'] == true) playerState = PlayerState.captured;
-    if (stateInfo['is_released'] == true) playerState = PlayerState.released;
+    if (stateInfo['status'] == 'captured') playerState = PlayerState.captured;
+    if (stateInfo['status'] == 'released') playerState = PlayerState.released;
 
     return LiveStatusModel(
       uid: userId,

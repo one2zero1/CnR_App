@@ -1,17 +1,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../models/room_model.dart'; // For GameSettings
-import 'chat_screen.dart';
-
+import '../models/room_model.dart';
 import 'game_result_screen.dart';
 import '../models/game_types.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../services/game_play_service.dart';
+import '../models/live_status_model.dart';
+import 'game_play_screen.dart';
 
 class InJailScreen extends StatefulWidget {
   final String gameName;
   final String roomId;
   final TeamRole role;
   final GameSystemRules settings;
+  final bool isHost;
 
   const InJailScreen({
     super.key,
@@ -19,6 +25,7 @@ class InJailScreen extends StatefulWidget {
     required this.roomId,
     required this.role,
     required this.settings,
+    required this.isHost,
   });
 
   @override
@@ -28,17 +35,56 @@ class InJailScreen extends StatefulWidget {
 class _InJailScreenState extends State<InJailScreen> {
   int _secondsInJail = 0;
   Timer? _timer;
+  StreamSubscription<List<LiveStatusModel>>? _statusSubscription;
+  String? _myId;
 
   @override
   void initState() {
     super.initState();
     _startTimer();
+    final authService = context.read<AuthService>();
+    _myId = authService.currentUser?.uid;
+    _startStatusListener();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _statusSubscription?.cancel();
     super.dispose();
+  }
+
+  void _startStatusListener() {
+    if (_myId == null) return;
+
+    final gamePlayService = context.read<GamePlayService>();
+    _statusSubscription = gamePlayService
+        .getLiveStatusesStream(widget.roomId)
+        .listen((statuses) {
+          if (!mounted) return;
+          try {
+            final myStatus = statuses.firstWhere((s) => s.uid == _myId);
+
+            // 만약 상태가 normal로 변경되면 (구출됨)
+            if (myStatus.state == PlayerState.normal) {
+              _statusSubscription?.cancel();
+
+              // 감옥 화면 종료 -> 게임 화면으로 복귀
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GamePlayScreen(
+                    gameName: widget.gameName,
+                    roomId: widget.roomId,
+                    role: widget.role,
+                    settings: widget.settings,
+                    isHost: widget.isHost,
+                  ),
+                ),
+              );
+            }
+          } catch (_) {}
+        });
   }
 
   void _startTimer() {
@@ -47,8 +93,26 @@ class _InJailScreenState extends State<InJailScreen> {
         setState(() {
           _secondsInJail++;
         });
+        if (_secondsInJail % 5 == 0) {
+          _updateServerLocation();
+        }
       }
     });
+  }
+
+  void _updateServerLocation() {
+    if (_myId == null) return;
+
+    final jailPos = LatLng(
+      widget.settings.prisonLocation.lat,
+      widget.settings.prisonLocation.lng,
+    );
+
+    context.read<GamePlayService>().updateMyLocation(
+      widget.roomId,
+      _myId!,
+      jailPos,
+    );
   }
 
   String _formatDuration(int seconds) {
@@ -157,29 +221,39 @@ class _InJailScreenState extends State<InJailScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Row(
                   children: [
-                    const SizedBox(width: 16),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatScreen(
-                                title: '채팅',
-                                isTeamChat: true,
-                                roomId: widget.roomId,
-                                userRole: widget.role,
-                              ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            '동료에게 QR 코드를 보여주세요',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.chat),
-                        label: const Text('구조 요청'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.thief,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Consumer<AuthService>(
+                              builder: (context, authService, child) {
+                                final myId = authService.currentUser?.uid ?? '';
+                                if (myId.isEmpty) {
+                                  return const Text('User ID not found');
+                                }
+                                return QrImageView(
+                                  data: myId,
+                                  version: QrVersions.auto,
+                                  size: 200.0,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

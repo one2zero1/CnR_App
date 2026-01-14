@@ -1,8 +1,14 @@
+import 'package:latlong2/latlong.dart';
+
 class UserModel {
   final String uid;
   final String nickname;
   final String? profileImg;
   final int mannerPoint;
+
+  final DateTime createdAt;
+  final DateTime lastLoginAt;
+  final LatLng? lastPlayedLocation;
 
   // Police stats
   final int policeWins;
@@ -24,6 +30,9 @@ class UserModel {
     required this.nickname,
     this.profileImg,
     this.mannerPoint = 0,
+    required this.createdAt,
+    required this.lastLoginAt,
+    this.lastPlayedLocation,
     this.policeWins = 0,
     this.policeGamesPlayed = 0,
     this.thiefWins = 0,
@@ -40,6 +49,18 @@ class UserModel {
       nickname: data['nickname'] as String? ?? '',
       profileImg: data['profile_img'] as String?,
       mannerPoint: data['manner_point'] as int? ?? 0,
+      createdAt:
+          DateTime.tryParse(data['created_at'] as String? ?? '') ??
+          DateTime.now(),
+      lastLoginAt:
+          DateTime.tryParse(data['last_login_at'] as String? ?? '') ??
+          DateTime.now(),
+      lastPlayedLocation: data['last_played_location'] != null
+          ? LatLng(
+              (data['last_played_location']['lat'] as num).toDouble(),
+              (data['last_played_location']['lng'] as num).toDouble(),
+            )
+          : null,
       policeWins: data['police_wins'] as int? ?? 0,
       policeGamesPlayed: data['police_games_played'] as int? ?? 0,
       thiefWins: data['thief_wins'] as int? ?? 0,
@@ -57,6 +78,14 @@ class UserModel {
       'nickname': nickname,
       'profile_img': profileImg,
       'manner_point': mannerPoint,
+      'created_at': createdAt.toIso8601String(),
+      'last_login_at': lastLoginAt.toIso8601String(),
+      'last_played_location': lastPlayedLocation != null
+          ? {
+              'lat': lastPlayedLocation!.latitude,
+              'lng': lastPlayedLocation!.longitude,
+            }
+          : null,
       'police_wins': policeWins,
       'police_games_played': policeGamesPlayed,
       'thief_wins': thiefWins,

@@ -25,7 +25,7 @@ class ChatMessage {
     return ChatMessage(
       id: id,
       senderId: map['senderId'] ?? '',
-      senderName: map['senderName'] ?? 'Unknown',
+      senderName: map['nickname'] ?? map['senderName'] ?? 'Unknown',
       content: map['message'] ?? '',
       timestamp: DateTime.fromMillisecondsSinceEpoch(
         map['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
@@ -43,7 +43,7 @@ class ChatMessage {
   Map<String, dynamic> toJson() {
     return {
       'senderId': senderId,
-      'senderName': senderName,
+      'nickname': senderName,
       'message': content,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'type': type.name, // 'global' or 'team'

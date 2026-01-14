@@ -7,6 +7,8 @@ class GameHistory {
   final DateTime startedAt;
   final DateTime endedAt;
   final int durationSec;
+  final double centerLat;
+  final double centerLng;
   final List<GameParticipantResult> participants;
 
   GameHistory({
@@ -17,6 +19,8 @@ class GameHistory {
     required this.startedAt,
     required this.endedAt,
     required this.durationSec,
+    required this.centerLat,
+    required this.centerLng,
     required this.participants,
   });
 
@@ -29,6 +33,8 @@ class GameHistory {
       'started_at': startedAt.toIso8601String(),
       'ended_at': endedAt.toIso8601String(),
       'duration_sec': durationSec,
+      'center_lat': centerLat,
+      'center_lng': centerLng,
       'participants': participants.map((p) => p.toJson()).toList(),
     };
   }
@@ -42,6 +48,8 @@ class GameHistory {
       startedAt: DateTime.tryParse(map['started_at'] ?? '') ?? DateTime.now(),
       endedAt: DateTime.tryParse(map['ended_at'] ?? '') ?? DateTime.now(),
       durationSec: map['duration_sec'] ?? 0,
+      centerLat: (map['center_lat'] as num?)?.toDouble() ?? 37.5665,
+      centerLng: (map['center_lng'] as num?)?.toDouble() ?? 126.9780,
       participants:
           (map['participants'] as List<dynamic>?)
               ?.map((p) => GameParticipantResult.fromJson(p))

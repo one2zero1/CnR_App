@@ -127,6 +127,13 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
         if (widget.playerMarkers.isNotEmpty)
           MarkerLayer(
             markers: widget.playerMarkers.map((markerData) {
+              final color = markerData.isCaptured
+                  ? Colors.grey
+                  : (markerData.isPolice ? AppColors.police : AppColors.thief);
+              final icon = markerData.isCaptured
+                  ? Icons.lock
+                  : Icons.location_on;
+
               return Marker(
                 point: markerData.position,
                 width: 100, // 텍스트 표시를 위해 너비 확장
@@ -134,13 +141,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      color: markerData.isPolice
-                          ? AppColors.police
-                          : AppColors.thief,
-                      size: 36,
-                    ),
+                    Icon(icon, color: color, size: 36),
                     if (markerData.nickname.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -150,19 +151,13 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: markerData.isPolice
-                                ? AppColors.police
-                                : AppColors.thief,
-                          ),
+                          border: Border.all(color: color),
                         ),
                         child: Text(
                           markerData.nickname,
                           style: TextStyle(
                             fontSize: 10,
-                            color: markerData.isPolice
-                                ? AppColors.police
-                                : AppColors.thief,
+                            color: color,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,

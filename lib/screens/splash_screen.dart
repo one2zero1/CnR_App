@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import 'tutorial_screen.dart';
@@ -39,7 +40,28 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 2), _checkAutoLogin);
+    // 2초 후 권한 체크 시작
+    Future.delayed(const Duration(seconds: 2), _checkPermissions);
+  }
+
+  Future<void> _checkPermissions() async {
+    // 필수 권한 목록
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.location,
+      Permission.camera,
+      Permission.microphone,
+      Permission.notification,
+    ].request();
+
+    // 권한 결과 확인 (로깅용, 실제로는 거부되어도 일단 진행)
+    statuses.forEach((permission, status) {
+      debugPrint('$permission status: $status');
+    });
+
+    // 권한 체크 후 로그인 체크로 이동
+    if (mounted) {
+      _checkAutoLogin();
+    }
   }
 
   Future<void> _checkAutoLogin() async {

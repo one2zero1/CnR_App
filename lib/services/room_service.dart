@@ -108,6 +108,8 @@ class FirebaseRoomService implements RoomService {
         status: 'force_ended',
         hostId: currentRoom.sessionInfo.hostId,
         expiresAt: DateTime.now(),
+        createdAt:
+            currentRoom.sessionInfo.createdAt, // Keep original creation time
         pinCode: currentRoom.sessionInfo.pinCode,
         forceEnd: ForceEnd(
           endedBy: 'system',

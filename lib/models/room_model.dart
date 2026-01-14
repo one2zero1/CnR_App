@@ -62,6 +62,8 @@ class SessionInfo {
   final String status; // waiting | playing | cleaning | force_ended
   final String hostId;
   final DateTime expiresAt;
+  final DateTime createdAt;
+  final DateTime? startedAt;
   final String pinCode;
   final ForceEnd? forceEnd;
 
@@ -69,6 +71,8 @@ class SessionInfo {
     required this.status,
     required this.hostId,
     required this.expiresAt,
+    required this.createdAt,
+    this.startedAt,
     required this.pinCode,
     this.forceEnd,
   });
@@ -80,6 +84,12 @@ class SessionInfo {
       expiresAt: DateTime.fromMillisecondsSinceEpoch(
         data['expires_at'] as int? ?? DateTime.now().millisecondsSinceEpoch,
       ),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        data['created_at'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      ),
+      startedAt: data['started_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['started_at'] as int)
+          : null,
       pinCode: data['pin_code'] as String? ?? '',
       forceEnd: data['force_end'] != null
           ? ForceEnd.fromMap(
@@ -94,6 +104,8 @@ class SessionInfo {
       'status': status,
       'host_id': hostId,
       'expires_at': expiresAt.millisecondsSinceEpoch,
+      'created_at': createdAt.millisecondsSinceEpoch,
+      if (startedAt != null) 'started_at': startedAt!.millisecondsSinceEpoch,
       'pin_code': pinCode,
       if (forceEnd != null) 'force_end': forceEnd!.toMap(),
     };

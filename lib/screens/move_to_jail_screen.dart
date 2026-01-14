@@ -10,12 +10,18 @@ import 'in_jail_screen.dart';
 import 'game_result_screen.dart';
 import '../models/game_types.dart';
 import '../models/room_model.dart';
+import '../models/live_status_model.dart';
+import 'game_play_screen.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../services/game_play_service.dart';
 
 class MoveToJailScreen extends StatefulWidget {
   final LatLng jailPosition;
   final String roomId;
   final TeamRole role;
   final GameSystemRules settings;
+  final bool isHost;
 
   const MoveToJailScreen({
     super.key,
@@ -23,6 +29,7 @@ class MoveToJailScreen extends StatefulWidget {
     required this.roomId,
     required this.role,
     required this.settings,
+    required this.isHost,
   });
 
   @override
@@ -32,19 +39,61 @@ class MoveToJailScreen extends StatefulWidget {
 class _MoveToJailScreenState extends State<MoveToJailScreen> {
   LatLng _currentPosition = const LatLng(37.5665, 126.9780);
   StreamSubscription<Position>? _positionStream;
+  StreamSubscription<List<LiveStatusModel>>? _statusSubscription;
   double _distanceToJail = 0;
   final Distance _distance = const Distance();
+  String? _myId;
 
   @override
   void initState() {
     super.initState();
+    final authService = context.read<AuthService>();
+    _myId = authService.currentUser?.uid;
     _startLocationUpdates();
+    _startStatusListener();
   }
 
   @override
   void dispose() {
     _positionStream?.cancel();
+    _statusSubscription?.cancel();
     super.dispose();
+  }
+
+  void _startStatusListener() {
+    if (_myId == null) return;
+
+    final gamePlayService = context.read<GamePlayService>();
+    _statusSubscription = gamePlayService
+        .getLiveStatusesStream(widget.roomId)
+        .listen((statuses) {
+          if (!mounted) return;
+          try {
+            final myStatus = statuses.firstWhere((s) => s.uid == _myId);
+
+            // 만약 상태가 normal로 변경되면 (구출됨)
+            if (myStatus.state == PlayerState.normal) {
+              _statusSubscription?.cancel();
+
+              // 이동 화면 종료 -> 게임 화면으로 복귀
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => GamePlayScreen(
+                      gameName:
+                          '경찰과 도둑', // TODO: Pass actual game name if available
+                      roomId: widget.roomId,
+                      role: widget.role,
+                      settings: widget.settings,
+                      isHost: widget.isHost,
+                    ),
+                  ),
+                );
+              }
+            }
+          } catch (_) {}
+        });
   }
 
   Future<void> _startLocationUpdates() async {
@@ -76,7 +125,17 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
           widget.jailPosition,
         );
       });
+      _updateServerLocation(_currentPosition);
     }
+  }
+
+  void _updateServerLocation(LatLng pos) {
+    if (_myId == null) return;
+    context.read<GamePlayService>().updateMyLocation(
+      widget.roomId,
+      _myId!,
+      pos,
+    );
   }
 
   @override
@@ -242,8 +301,9 @@ class _MoveToJailScreenState extends State<MoveToJailScreen> {
                               gameName: '경찰과 도둑',
                               roomId: widget.roomId,
                               role: widget.role,
-                              settings: widget.settings, // Passing settings
-                            ), // TODO: 실제 게임 이름 전달
+                              settings: widget.settings,
+                              isHost: widget.isHost,
+                            ),
                           ),
                         );
                       }

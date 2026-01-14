@@ -22,6 +22,8 @@ class FirebaseAuthService implements AuthService {
       return UserModel(
         uid: firebaseUser.uid,
         nickname: firebaseUser.displayName ?? 'Unknown',
+        createdAt: firebaseUser.metadata.creationTime ?? DateTime.now(),
+        lastLoginAt: firebaseUser.metadata.lastSignInTime ?? DateTime.now(),
       );
     });
   }
@@ -30,7 +32,12 @@ class FirebaseAuthService implements AuthService {
   UserModel? get currentUser {
     final user = _auth.currentUser;
     if (user == null) return null;
-    return UserModel(uid: user.uid, nickname: user.displayName ?? 'Unknown');
+    return UserModel(
+      uid: user.uid,
+      nickname: user.displayName ?? 'Unknown',
+      createdAt: user.metadata.creationTime ?? DateTime.now(),
+      lastLoginAt: user.metadata.lastSignInTime ?? DateTime.now(),
+    );
   }
 
   @override
@@ -48,6 +55,8 @@ class FirebaseAuthService implements AuthService {
         return UserModel(
           uid: updatedUser!.uid,
           nickname: updatedUser.displayName ?? nickname,
+          createdAt: updatedUser.metadata.creationTime ?? DateTime.now(),
+          lastLoginAt: updatedUser.metadata.lastSignInTime ?? DateTime.now(),
         );
       } else {
         throw Exception('Firebase signInAnonymously returned null user');

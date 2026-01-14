@@ -111,7 +111,7 @@ class FirebaseGamePlayService implements GamePlayService {
               // TODO: 'state' (captured) might need to come from elsewhere if not in live_status
               // For now, assume default normal unless we find a 'state' node
               final stateMap = valMap['state'] as Map?;
-              final isCaptured = stateMap?['is_captured'] == true;
+              final isCaptured = stateMap?['status'] == 'captured';
 
               result.add(
                 LiveStatusModel(

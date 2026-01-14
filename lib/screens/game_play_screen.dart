@@ -51,6 +51,10 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   bool _showingLocationAlert = false;
   bool _isTalking = false;
 
+  // 알림 로직을 위한 상태 변수
+  Set<String> _prevCapturedUids = {};
+  bool _isFirstStatusUpdate = true;
+
   // 채팅 관련
   final TextEditingController _chatController = TextEditingController();
   bool _isComposing = false;
@@ -122,17 +126,58 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
         _hasInitialSnapshot = true;
       }
 
-      final captured = statuses
+      // Calculate captured thieves for UI count
+      final currentCapturedUids = statuses
           .where(
             (s) => s.role == TeamRole.thief && s.state == PlayerState.captured,
           )
-          .length;
+          .map((s) => s.uid)
+          .toSet();
 
-      if (_capturedThieves != captured) {
+      final capturedCount = currentCapturedUids.length;
+
+      if (_capturedThieves != capturedCount) {
         setState(() {
-          _capturedThieves = captured;
+          _capturedThieves = capturedCount;
         });
       }
+
+      // --- Notification Logic (Capture & Release) ---
+      if (_isFirstStatusUpdate) {
+        // 첫 진입 시 동기화만 하고 알림 스킵
+        _prevCapturedUids = currentCapturedUids;
+        _isFirstStatusUpdate = false;
+      } else {
+        // 1. 잡힌 도둑 감지 (이전엔 없었는데 새로 생긴 ID)
+        final newlyCaptured = currentCapturedUids.difference(_prevCapturedUids);
+        if (newlyCaptured.isNotEmpty) {
+          final participants = _cachedRoom?.participants ?? {};
+          for (final uid in newlyCaptured) {
+            final nickname = participants[uid]?.nickname ?? 'Unknown';
+            ToastUtil.show(
+              context,
+              '$nickname님이 잡혔습니다!',
+              isError: true, // 강조를 위해 에러 스타일(붉은색/경고색) 사용 가능
+            );
+          }
+        }
+
+        // 2. 풀려난 도둑 감지 (이전엔 있었는데 지금은 없는 ID)
+        // 누군가 풀려났다면 "모든 도둑이 풀려났습니다" 메시지 (일괄 석방 가정)
+        // 만약 개별 석방이라도, 풀려난 사람이 있으면 알림
+        final newlyReleased = _prevCapturedUids.difference(currentCapturedUids);
+        if (newlyReleased.isNotEmpty) {
+          ToastUtil.show(
+            context,
+            '모든 도둑이 풀려났습니다!', // 요구사항: "모든 도둑이 풀려났기 때문에, 모든 도둑이 풀려났다고 하기"
+            isError: false,
+          );
+        }
+
+        // 상태 업데이트
+        _prevCapturedUids = currentCapturedUids;
+      }
+      // ---------------------------------------------
 
       // Check My Status (Auto Navigate to Jail if Captured)
       if (_myId != null && widget.role == TeamRole.thief) {
@@ -153,6 +198,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                     roomId: widget.roomId,
                     role: widget.role,
                     settings: widget.settings,
+                    isHost: widget.isHost,
                   ),
                 ),
               );
@@ -588,8 +634,11 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               // 6. 기타 플로팅 버튼들
               if (_showingLocationAlert) _buildLocationAlert(),
               if (_speakingNickname != null) _buildVoiceOverlay(),
-              if (widget.settings.gameMode == 'advanced')
-                if (isThief) _buildCaughtButton() else _buildArrestButton(),
+              if (widget.settings.gameMode == 'advanced') ...[
+                if (isThief) _buildCaughtButton(),
+                if (isThief) _buildRescueButton(),
+                if (!isThief) _buildArrestButton(),
+              ],
               _buildVoiceButton(isThief),
               _buildChatScreenButton(isThief), // 채팅 버튼 분리
             ],
@@ -807,6 +856,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                     nickname: nickname,
                     position: displayPos,
                     isPolice: p.role == TeamRole.police,
+                    isCaptured: p.state == PlayerState.captured,
                   );
                 })
                 .toList();
@@ -1119,6 +1169,24 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   }
 
   void _showArrestScanner() {
+    final controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      detectionTimeoutMs: 1000, // 1초 간격으로 스캔 (중복 방지)
+      returnImage: false,
+      formats: [BarcodeFormat.qrCode],
+      autoStart: true,
+      torchEnabled: false,
+    );
+
+    bool isProcessing = false;
+
+    // 화면 중앙의 스캔 영역 계산 (250x250)
+    final scanWindow = Rect.fromCenter(
+      center: MediaQuery.of(context).size.center(Offset.zero),
+      width: 250,
+      height: 250,
+    );
+
     showDialog(
       context: context,
       useSafeArea: false,
@@ -1128,16 +1196,33 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
         child: Stack(
           children: [
             MobileScanner(
+              controller: controller,
+              scanWindow: scanWindow, // 스캔 영역 제한
               onDetect: (capture) {
+                if (isProcessing) return;
+
                 final List<Barcode> barcodes = capture.barcodes;
                 for (final barcode in barcodes) {
                   final String? code = barcode.rawValue;
+                  debugPrint('QR Scan Detected: $code');
+
                   if (code != null) {
+                    isProcessing = true;
+                    controller.stop();
                     Navigator.pop(dialogContext);
+                    debugPrint('Handling arrest for target: $code');
                     _handleArrest(code);
                     break;
                   }
                 }
+              },
+              errorBuilder: (context, error, child) {
+                return Center(
+                  child: Text(
+                    '카메라 오류: $error',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
               },
             ),
             Positioned(
@@ -1167,10 +1252,12 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               left: 16,
               child: IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.pop(dialogContext),
+                onPressed: () {
+                  controller.dispose();
+                  Navigator.pop(dialogContext);
+                },
               ),
             ),
-            // Center scanning area visualization
             Center(
               child: Container(
                 width: 250,
@@ -1184,12 +1271,13 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   Future<void> _handleArrest(String targetId) async {
     if (_myId == null) return;
 
+    debugPrint('Attempting arrest -> Police: $_myId, Target: $targetId');
     LoadingUtil.show(context, message: AppStrings.checkingResult);
 
     try {
@@ -1199,6 +1287,8 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
         targetThiefId: targetId,
       );
 
+      debugPrint('Arrest result: $success');
+
       if (mounted) LoadingUtil.hide(context);
 
       if (success) {
@@ -1206,6 +1296,176 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
       } else {
         if (mounted)
           ToastUtil.show(context, AppStrings.arrestFail, isError: true);
+      }
+    } catch (e) {
+      debugPrint('Arrest error: $e');
+      if (mounted) LoadingUtil.hide(context);
+      if (mounted) ToastUtil.show(context, '오류: $e', isError: true);
+    }
+  }
+
+  Widget _buildRescueButton() {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 140,
+      right: 16,
+      child: GestureDetector(
+        onTap: _showRescueScanner,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.blueAccent,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.qr_code_scanner, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                '구출하기',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRescueScanner() {
+    final controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      detectionTimeoutMs: 1000,
+      returnImage: false,
+      formats: [BarcodeFormat.qrCode],
+      autoStart: true,
+      torchEnabled: false,
+    );
+
+    bool isProcessing = false;
+
+    final scanWindow = Rect.fromCenter(
+      center: MediaQuery.of(context).size.center(Offset.zero),
+      width: 250,
+      height: 250,
+    );
+
+    showDialog(
+      context: context,
+      useSafeArea: false,
+      builder: (dialogContext) => Dialog(
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            MobileScanner(
+              controller: controller,
+              scanWindow: scanWindow,
+              onDetect: (capture) {
+                if (isProcessing) return;
+
+                final List<Barcode> barcodes = capture.barcodes;
+                for (final barcode in barcodes) {
+                  final String? code = barcode.rawValue;
+                  debugPrint('Rescue Scan Detected: $code');
+
+                  if (code != null) {
+                    isProcessing = true;
+                    controller.stop();
+                    Navigator.pop(dialogContext);
+                    _handleRescue(code);
+                    break;
+                  }
+                }
+              },
+              errorBuilder: (context, error, child) {
+                return Center(
+                  child: Text(
+                    '카메라 오류: $error',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 20,
+              left: 0,
+              right: 0,
+              child: Column(
+                children: const [
+                  Text(
+                    '동료 구출 스캔',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '감옥에 있는 동료의 QR 코드를 스캔하세요',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 20,
+              left: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () {
+                  controller.dispose();
+                  Navigator.pop(dialogContext);
+                },
+              ),
+            ),
+            Center(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.blueAccent, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).then((_) => controller.dispose());
+  }
+
+  Future<void> _handleRescue(String targetId) async {
+    if (_myId == null) return;
+
+    LoadingUtil.show(context, message: '구출 시도 중...');
+
+    try {
+      final success = await context.read<GamePlayService>().attemptRescue(
+        roomId: widget.roomId,
+        rescuerId: _myId!,
+        targetThiefId: targetId,
+      );
+
+      if (mounted) LoadingUtil.hide(context);
+
+      if (success) {
+        if (mounted) ToastUtil.show(context, '구출 성공!');
+      } else {
+        if (mounted)
+          ToastUtil.show(context, '구출 실패: 거리가 멀거나 이미 구출되었습니다.', isError: true);
       }
     } catch (e) {
       if (mounted) LoadingUtil.hide(context);
