@@ -58,6 +58,8 @@ class AppStrings {
   static const String notifChatTitle = '채팅 알림';
   static const String notifChatSub = '새로운 채팅 메시지 알림';
   static const String settingsMap = '지도';
+  static const String visibilityMode = '가시성 모드';
+  static const String visibilityModeSub = '지도 마커를 점으로 단순화하여 표시';
   static const String mapStyle = '지도 스타일';
   static const String mapStyleNormal = '일반';
   static const String mapStyleSatellite = '위성';

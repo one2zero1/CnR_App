@@ -28,14 +28,18 @@ GPS 위치 기반 기술을 활용하여 사용자가 실제 공간에서 경찰
     *   준비 완료 및 게임 시작 기능
 *   **게임 플레이 (In-Game)**
     *   **실시간 위치 추적**: `flutter_map`을 이용한 사용자 위치 표시
-    *   **팀별 가시성 처리**: 경찰은 도둑의 위치를 주기적으로, 도둑은 경찰의 위치를 실시간으로 확인 (설정에 따름)
+    *   **팀별 가시성 처리**: 경찰은 도둑의 위치를 주기적으로, 도둑은 경찰의 위치를 실시간으로 확인
+    *   **가시성 모드 (Visibility Mode)**: 마커를 심플한 점(Dot) 형태로 표시하여 시인성 개선 및 게임 몰입도 향상 (설정에서 토글 가능)
+    *   **감옥 영역 가시화**: 감옥 위치를 반투명 원형 오버레이로 표시하여 명확한 경계 제공
     *   **이탈 방지**: 설정된 반경 밖으로 나갈 경우 경고 알림 및 서버 보고
+    *   **음성 채팅 (무전기)**: 팀원 간 실시간 무전 기능을 통해 전략적 소통 가능
+*   **부가 기능**
+    *   **튜토리얼 다시보기**: 설정 화면에서 언제든 튜토리얼 확인 가능
+    *   **이용약관 및 개인정보 처리방침**: 앱 내 설정에서 법적 고지 사항 확인 가능
 *   **인증 시스템**
     *   익명 로그인 (Anonymous Auth) 지원으로 빠른 게임 시작
 
 ### 🚀 구현 예정 기능
-*   **음성 채팅 (무전기)**: 팀원 간 실시간 음성 소통 기능
-*   **아이템 및 상점**: 게임 내 재화 또는 아이템 사용 기능
 *   **백그라운드 위치 서비스**: 앱이 백그라운드에 있어도 위치 공유 유지
 *   **게임 결과 화면**: 승리/패배 및 MVP 선정 화면
 *   **소셜 로그인**: 구글, 카카오 등 소셜 계정 연동
@@ -57,7 +61,7 @@ GPS 위치 기반 기술을 활용하여 사용자가 실제 공간에서 경찰
 *   **Utility**:
     *   `mobile_scanner`: QR 코드 스캔 기능
     *   `qr_flutter`: QR 코드 생성 및 렌더링
-    *   `shared_preferences`: 로컬 설정 저장
+    *   `shared_preferences`: 로컬 설정 저장 (가시성 모드 등)
 
 ### 📡 Backend (Interface)
 *   **Protocol**: HTTP REST API
@@ -71,12 +75,15 @@ GPS 위치 기반 기술을 활용하여 사용자가 실제 공간에서 경찰
 ```text
 lib/
 ├── config/             # 앱 전역 설정 (상수, 환경변수 등)
+│   ├── app_strings.dart      # 문자열 상수
+│   └── legal_strings.dart    # 이용약관 및 개인정보 처리방침 텍스트
 ├── models/             # 데이터 모델 (Json Serialization)
 │   ├── room_model.dart       # 방 정보 및 참가자 모델
 │   ├── user_model.dart       # 사용자 정보 모델
 │   ├── location_model.dart   # 위치 업데이트 및 경계 확인 모델
 │   └── game_types.dart       # Enum 및 공통 타입 정의
 ├── providers/          # 상태 관리 (Global State)
+│   └── theme_provider.dart   # 테마 및 가시성 모드 관리
 ├── screens/            # UI 화면 (Pages)
 │   ├── home_screen.dart        # 메인 홈
 │   ├── jail_settings_screen.dart # 방 생성 및 설정
@@ -84,13 +91,17 @@ lib/
 │   ├── join_room_screen.dart     # 방 입장 (PIN/QR 스캔)
 │   ├── waiting_room_screen.dart  # 대기실 (역할 선택)
 │   ├── map_preview_screen.dart   # 지도 미리보기 (게임 설정 확인)
-│   └── game_play_screen.dart     # 게임 메인 지도 화면
+│   ├── game_play_screen.dart     # 게임 메인 지도 화면
+│   ├── settings_screen.dart      # 설정 (가시성, 튜토리얼, 약관)
+│   ├── tutorial_screen.dart      # 튜토리얼 화면
+│   └── common_text_screen.dart   # 공용 텍스트 뷰어 (약관 등)
 ├── services/           # 비즈니스 로직 및 API 통신
 │   ├── auth_service.dart     # 인증 서비스
 │   ├── room_service.dart     # 방 관리 API
 │   └── game_play_service.dart# 게임 진행 및 위치 API
 ├── theme/              # 디자인 테마 (Colors, Styles)
 └── widgets/            # 재사용 가능한 UI 컴포넌트
+    └── flutter_map_widget.dart # 지도 및 마커 렌더링 위젯
 ```
 
 ---
@@ -146,25 +157,19 @@ Stack(
 )
 ```
 
-### 4) 게임 위치 공유 및 경계 확인
+### 4) 게임 위치 공유 및 가시성 처리
 *   **패키지**: `geolocator`, `latlong2`, `flutter_map`
 *   **로직**:
-    *   `Geolocator.getPositionStream` 또는 `Timer`를 통해 위치를 수집하고 서버로 전송합니다.
-    *   `latlong2` 패키지의 `Distance` 클래스를 사용하여 감옥이나 게임 반경과의 거리를 정확하게(미터 단위) 계산합니다.
-```dart
-// GamePlayService: 위치 업데이트 및 반경 체크
-void _startLocationUpdates() {
-  _locationTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-    Position pos = await Geolocator.getCurrentPosition();
-    // 서버로 내 위치 전송
-    await updateMyLocation(roomId, pos.latitude, pos.longitude);
-    // 게임 반경 이탈 확인 API 호출
-    final check = await checkBoundary(roomId, pos);
-    if (!check.isWithin) _showWarning();
-  });
-}
-```
+    *   `Geolocator`로 위치를 수집하여 서버로 전송하고, `Distance` 클래스로 반경 이탈을 체크합니다.
+    *   **가시성 모드**: `ThemeProvider`의 상태(`isVisibilityMode`)에 따라 `FlutterMapWidget`에서 마커를 렌더링할 때 `Marker` 위젯의 자식(child)으로 복잡한 `Column`(아이콘+텍스트) 대신 단순한 `Container`(원형 점)를 반환합니다.
+    *   **감옥 영역**: `CircleMarker`를 사용하여 지도상에 반투명한 원을 그려 시각적으로 표현합니다.
 
+### 5) 실시간 음성 채팅 (Real-time Voice Chat)
+*   **패키지**: `sound_stream`, `permission_handler`, `flutter_volume_controller`
+*   **로직**:
+    *   `SoundStream` 패키지를 활용하여 마이크 입력을 Raw PCM 데이터로 캡처하고, 이를 스트림 형태로 팀원들에게 전송합니다.
+    *   `audio_session` 설정을 통해 통화 모드(Voice Chat)에 최적화된 오디오 경로를 구성했습니다.
+    *   **볼륨 동기화**: `flutter_volume_controller`를 도입하여 앱 내 슬라이더가 아닌 기기의 물리적 볼륨 버튼으로도 음성 채팅 음량을 직관적으로 조절할 수 있도록 구현했습니다.
 
 ---
 
@@ -189,5 +194,17 @@ MobileScanner(
 )
 ```
 
+### 2. 음성 채팅 볼륨 동기화 이슈
+*   **문제**: 인앱 음성 채팅 볼륨이 디바이스의 물리적 볼륨 버튼과 동기화되지 않거나, 미디어 볼륨 대신 통화 볼륨으로 잘못 잡히는 현상.
+*   **해결**: `flutter_volume_controller`를 도입하여 하드웨어 볼륨 버튼 이벤트를 리스닝하고, `VoiceService`에서 PCM 오디오 재생 시 디바이스 볼륨을 반영하도록 소프트웨어적 스케일링을 구현했습니다.
+
+### 3. 다크 모드(Dark Mode) UI 호환성
+*   **문제**: 다크 모드 활성화 시 텍스트나 아이콘이 배경색과 겹쳐 보이지 않는 시인성 문제.
+*   **해결**: 하드코딩된 색상 값을 `Theme.of(context)` 기반의 동적 색상으로 전면 교체하고, `LoginScreen` 및 `TutorialScreen`의 디자인을 테마에 맞춰 최적화했습니다.
+
+### 4. 플레이어 마커 가시성 개선 (Map Clutter)
+*   **문제**: 플레이어의 닉네임과 아이콘이 겹쳐 지도 시인성이 떨어지고 아군/적군 식별이 어려움.
+*   **해결**: '가시성 모드(Visibility Mode)'를 도입하여 마커를 단순한 색상 점(Dot)으로 표현하고, 감옥 영역을 반투명 원형 오버레이로 시각화하여 직관성을 높였습니다.
+
 ---
-*Last Updated: 2026-01-08*
+*Last Updated: 2026-01-15*

@@ -27,10 +27,16 @@ class _TutorialScreenState extends State<TutorialScreen> {
       color: AppColors.police,
     ),
     TutorialPage(
-      icon: Icons.touch_app,
-      title: '터치로 포획',
-      description: '경찰이 도둑을 실제로 터치하면\n도둑이 "잡혔어요" 버튼을 눌러 포획을 확정합니다.',
+      icon: Icons.qr_code_scanner,
+      title: 'QR 코드로 체포',
+      description: '경찰이 도둑의 화면에 표시된\nQR 코드를 스캔하여 체포합니다.',
       color: AppColors.danger,
+    ),
+    TutorialPage(
+      icon: Icons.graphic_eq,
+      title: '실시간 무전',
+      description: '같은 팀원들과 실시간 음성 대화로\n전략을 공유하세요.',
+      color: Colors.deepPurple,
     ),
     TutorialPage(
       icon: Icons.emoji_events,
@@ -47,14 +53,18 @@ class _TutorialScreenState extends State<TutorialScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      _goToLogin();
+      _onComplete();
     }
   }
 
-  void _goToLogin() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+  void _onComplete() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+    }
   }
 
   @override
@@ -66,19 +76,19 @@ class _TutorialScreenState extends State<TutorialScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
-                onPressed: _goToLogin,
-                child: const Text(
+                onPressed: _onComplete,
+                child: Text(
                   '건너뛰기',
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontSize: 16,
-                    color: AppColors.textSecondary,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                 ),
               ),
@@ -111,9 +121,9 @@ class _TutorialScreenState extends State<TutorialScreen> {
                   const SizedBox(height: 8),
                   Text(
                     '${_currentPage + 1}/${_pages.length}',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontSize: 14,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -127,7 +137,9 @@ class _TutorialScreenState extends State<TutorialScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: Text(
-                        _currentPage == _pages.length - 1 ? '시작하기' : '다음',
+                        _currentPage == _pages.length - 1
+                            ? (Navigator.canPop(context) ? '완료' : '시작하기')
+                            : '다음',
                         style: const TextStyle(fontSize: 18),
                       ),
                     ),
@@ -159,19 +171,19 @@ class _TutorialScreenState extends State<TutorialScreen> {
           const SizedBox(height: 48),
           Text(
             page.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: Theme.of(context).textTheme.titleLarge?.color,
             ),
           ),
           const SizedBox(height: 24),
           Text(
             page.description,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
               height: 1.6,
             ),
           ),

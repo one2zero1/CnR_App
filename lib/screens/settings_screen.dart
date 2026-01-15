@@ -6,6 +6,9 @@ import '../config/app_strings.dart';
 import '../providers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import 'tutorial_screen.dart'; // Import TutorialScreen
+import '../config/legal_strings.dart';
+import 'common_text_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -96,6 +99,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
+          _buildSectionHeader(AppStrings.settingsMap),
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return _buildSwitchTile(
+                title: AppStrings.visibilityMode,
+                subtitle: AppStrings.visibilityModeSub,
+                value: themeProvider.isVisibilityMode,
+                onChanged: (value) => themeProvider.toggleVisibilityMode(value),
+              );
+            },
+          ),
           // _buildSectionHeader(AppStrings.settingsMap), // Removed Map Style Selection
           Padding(
             padding: const EdgeInsets.all(AppSizes.paddingMedium),
@@ -196,19 +210,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.help_outline),
             title: const Text(AppStrings.tutorialRestart),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TutorialScreen()),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text(AppStrings.terms),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CommonTextScreen(
+                    title: AppStrings.terms,
+                    content: LegalStrings.termsOfService,
+                  ),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text(AppStrings.privacy),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CommonTextScreen(
+                    title: AppStrings.privacy,
+                    content: LegalStrings.privacyPolicy,
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: AppSizes.spaceXLarge),
         ],

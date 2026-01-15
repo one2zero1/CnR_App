@@ -12,6 +12,7 @@ class FlutterMapWidget extends StatefulWidget {
   final bool showMyLocation;
   final bool showCircleOverlay;
   final List<PlayerMarkerData> playerMarkers;
+  final bool isVisibilityMode;
   final Function(LatLng)? onMapTap;
   final Function(MapController)? onMapReady;
 
@@ -24,6 +25,7 @@ class FlutterMapWidget extends StatefulWidget {
     this.showMyLocation = true,
     this.showCircleOverlay = false,
     this.playerMarkers = const [],
+    this.isVisibilityMode = true,
     this.onMapTap,
     this.onMapReady,
   });
@@ -109,10 +111,11 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
           userAgentPackageName: 'com.example.gyeong_do',
         ),
 
-        // 원형 오버레이
-        if (widget.showCircleOverlay && widget.circleRadius != null)
-          CircleLayer(
-            circles: [
+        // 원형 오버레이 및 감옥 영역
+        CircleLayer(
+          circles: [
+            // 게임 영역
+            if (widget.showCircleOverlay && widget.circleRadius != null)
               CircleMarker(
                 point: widget.overlayCenter ?? center,
                 radius: widget.circleRadius!,
@@ -121,25 +124,18 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                 borderColor: AppColors.primary,
                 borderStrokeWidth: 3,
               ),
-            ],
-          ),
-
-        // 감옥 마커
-        if (widget.jailPosition != null)
-          MarkerLayer(
-            markers: [
-              Marker(
+            // 감옥 영역 (반경 3m)
+            if (widget.jailPosition != null)
+              CircleMarker(
                 point: widget.jailPosition!,
-                width: 40,
-                height: 40,
-                child: const MapMarker(
-                  color: AppColors.police,
-                  icon: Icons.grid_view,
-                  size: 40,
-                ),
+                radius: 3.0, // 3 meters
+                useRadiusInMeter: true,
+                color: Colors.black.withOpacity(0.3),
+                borderColor: Colors.black,
+                borderStrokeWidth: 1,
               ),
-            ],
-          ),
+          ],
+        ),
 
         // 플레이어 마커들
         if (widget.playerMarkers.isNotEmpty)
@@ -148,6 +144,31 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
               final color = markerData.isCaptured
                   ? Colors.grey
                   : (markerData.isPolice ? AppColors.police : AppColors.thief);
+
+              // Visibility Mode: Simple Dot
+              if (widget.isVisibilityMode) {
+                return Marker(
+                  point: markerData.position,
+                  width: 12,
+                  height: 12,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              // Detail Mode: Icon + Label
               final icon = markerData.isCaptured
                   ? Icons.lock
                   : Icons.location_on;
@@ -193,16 +214,37 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
         if (widget.showMyLocation)
           MarkerLayer(
             markers: [
-              Marker(
-                point: center,
-                width: 40,
-                height: 40,
-                child: const MapMarker(
-                  color: AppColors.success, // 일관성 있게 success(초록)색 사용
-                  icon: Icons.my_location,
-                  size: 40,
+              if (widget.isVisibilityMode)
+                Marker(
+                  point: center,
+                  width: 12,
+                  height: 12,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.success,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Marker(
+                  point: center,
+                  width: 40,
+                  height: 40,
+                  child: const MapMarker(
+                    color: AppColors.success, // 일관성 있게 success(초록)색 사용
+                    icon: Icons.my_location,
+                    size: 40,
+                  ),
                 ),
-              ),
             ],
           ),
       ],

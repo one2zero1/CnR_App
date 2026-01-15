@@ -20,7 +20,7 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -36,20 +36,23 @@ class LoginScreen extends StatelessWidget {
                 color: AppColors.primary,
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 '경찰과 도둑',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).textTheme.titleLarge?.color,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 '실시간 추격전의 시작',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
               ),
               const Spacer(),
               // Actions Area
@@ -58,8 +61,7 @@ class LoginScreen extends StatelessWidget {
                 icon: const Icon(Icons.person_outline),
                 label: const Text('게스트로 시작하기'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      AppColors.textSecondary, // Distinct color for guest
+                  backgroundColor: AppColors.textSecondary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   textStyle: const TextStyle(

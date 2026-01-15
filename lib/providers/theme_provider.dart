@@ -3,8 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
+  bool _isVisibilityMode = true; // Default to true (Visibility Mode)
 
   ThemeMode get themeMode => _themeMode;
+  bool get isVisibilityMode => _isVisibilityMode;
 
   ThemeProvider() {
     _loadTheme();
@@ -15,8 +17,15 @@ class ThemeProvider extends ChangeNotifier {
     final themeIndex = prefs.getInt('theme_mode');
     if (themeIndex != null) {
       _themeMode = ThemeMode.values[themeIndex];
-      notifyListeners();
     }
+
+    // Load Visibility Mode
+    final visibility = prefs.getBool('is_visibility_mode');
+    if (visibility != null) {
+      _isVisibilityMode = visibility;
+    }
+
+    notifyListeners();
   }
 
   void setThemeMode(ThemeMode mode) async {
@@ -24,5 +33,12 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme_mode', mode.index);
+  }
+
+  void toggleVisibilityMode(bool isEnabled) async {
+    _isVisibilityMode = isEnabled;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_visibility_mode', isEnabled);
   }
 }

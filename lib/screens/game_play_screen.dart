@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/flutter_map_widget.dart';
+import '../providers/theme_provider.dart'; // Import ThemeProvider
 import 'chat_screen.dart';
 import '../models/chat_model.dart'; // Import Chat Models
 import '../services/chat_service.dart'; // Import Chat Service
@@ -866,27 +867,33 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 })
                 .toList();
 
-            return FlutterMapWidget(
-              initialPosition: _currentPosition,
-              overlayCenter: LatLng(
-                widget.settings.activityBoundary.centerLat,
-                widget.settings.activityBoundary.centerLng,
-              ),
-              jailPosition: LatLng(
-                widget.settings.prisonLocation.lat,
-                widget.settings.prisonLocation.lng,
-              ),
-              circleRadius: widget.settings.activityBoundary.radiusMeter
-                  .toDouble(),
-              showCircleOverlay: true,
-              showMyLocation: true,
-              playerMarkers: markers,
-              onMapReady: (controller) {
-                _mapController = controller;
-              },
-              onMapTap: (point) {
-                FocusScope.of(context).unfocus();
-                debugPrint('Map tapped at: $point');
+            return Consumer<ThemeProvider>(
+              builder: (context, themeProvider, child) {
+                return FlutterMapWidget(
+                  initialPosition: _currentPosition,
+                  overlayCenter: LatLng(
+                    widget.settings.activityBoundary.centerLat,
+                    widget.settings.activityBoundary.centerLng,
+                  ),
+                  jailPosition: LatLng(
+                    widget.settings.prisonLocation.lat,
+                    widget.settings.prisonLocation.lng,
+                  ),
+                  circleRadius: widget.settings.activityBoundary.radiusMeter
+                      .toDouble(),
+                  showCircleOverlay: true,
+                  showMyLocation: true,
+                  playerMarkers: markers,
+                  isVisibilityMode:
+                      themeProvider.isVisibilityMode, // Connect to Provider
+                  onMapReady: (controller) {
+                    _mapController = controller;
+                  },
+                  onMapTap: (point) {
+                    FocusScope.of(context).unfocus();
+                    debugPrint('Map tapped at: $point');
+                  },
+                );
               },
             );
           },
