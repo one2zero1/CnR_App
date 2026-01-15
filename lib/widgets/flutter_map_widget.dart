@@ -124,6 +124,23 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
             ],
           ),
 
+        // 감옥 마커
+        if (widget.jailPosition != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: widget.jailPosition!,
+                width: 40,
+                height: 40,
+                child: const MapMarker(
+                  color: AppColors.police,
+                  icon: Icons.grid_view,
+                  size: 40,
+                ),
+              ),
+            ],
+          ),
+
         // 플레이어 마커들
         if (widget.playerMarkers.isNotEmpty)
           MarkerLayer(
@@ -183,23 +200,6 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                 child: const MapMarker(
                   color: AppColors.success, // 일관성 있게 success(초록)색 사용
                   icon: Icons.my_location,
-                  size: 40,
-                ),
-              ),
-            ],
-          ),
-
-        // 감옥 마커
-        if (widget.jailPosition != null)
-          MarkerLayer(
-            markers: [
-              Marker(
-                point: widget.jailPosition!,
-                width: 40,
-                height: 40,
-                child: const MapMarker(
-                  color: AppColors.police,
-                  icon: Icons.grid_view,
                   size: 40,
                 ),
               ),

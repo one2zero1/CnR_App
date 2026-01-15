@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -60,6 +61,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   bool _isComposing = false;
 
   // 위치 관련
+  late MapController _mapController;
   LatLng _currentPosition = const LatLng(37.5665, 126.9780);
   StreamSubscription<Position>? _positionStream;
   Stream<List<LiveStatusModel>>? _statusStream;
@@ -639,6 +641,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 if (isThief) _buildRescueButton(),
                 if (!isThief) _buildArrestButton(),
               ],
+              _buildMyLocationButton(),
               _buildVoiceButton(isThief),
               _buildChatScreenButton(isThief), // 채팅 버튼 분리
             ],
@@ -876,6 +879,9 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               showCircleOverlay: true,
               showMyLocation: true,
               playerMarkers: markers,
+              onMapReady: (controller) {
+                _mapController = controller;
+              },
               onMapTap: (point) {
                 FocusScope.of(context).unfocus();
                 debugPrint('Map tapped at: $point');
@@ -1052,6 +1058,57 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMyLocationButton() {
+    return Positioned(
+      bottom: 250 + MediaQuery.of(context).viewInsets.bottom,
+      right: 16,
+      child: GestureDetector(
+        onTap: () {
+          // 기존 Move 로직 대신 CameraFit 사용
+          // _mapController.move(_currentPosition, 16.0);
+
+          final center = LatLng(
+            widget.settings.activityBoundary.centerLat,
+            widget.settings.activityBoundary.centerLng,
+          );
+          final radius = widget.settings.activityBoundary.radiusMeter
+              .toDouble();
+
+          // Calculate bounds for circle
+          // (Simple approximation or use Distance class if exact is needed,
+          // but here we can reuse the logic from MapPreview or just use Distance)
+          const distance = Distance();
+          final north = distance.offset(center, radius, 0);
+          final east = distance.offset(center, radius, 90);
+          final south = distance.offset(center, radius, 180);
+          final west = distance.offset(center, radius, 270);
+
+          final bounds = LatLngBounds.fromPoints([north, east, south, west]);
+
+          _mapController.fitCamera(
+            CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
+          );
+        },
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.my_location, color: Colors.blueAccent),
+        ),
       ),
     );
   }
