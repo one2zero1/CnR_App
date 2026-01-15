@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'waiting_room_screen.dart';
 import '../utils/loading_util.dart'; // Import Loading Util
+import '../config/app_strings.dart';
 
 class GameResultScreen extends StatefulWidget {
   final String gameName;
@@ -28,33 +29,91 @@ class GameResultScreen extends StatefulWidget {
 }
 
 class _GameResultScreenState extends State<GameResultScreen> {
+  Future<void> _handleLeaveRoom() async {
+    // Show Loading
+    LoadingUtil.show(context, message: '퇴장 처리 중...');
+
+    final user = context.read<AuthService>().currentUser;
+    // leaveRoom 호출
+    if (user != null) {
+      try {
+        await context.read<RoomService>().leaveRoom(widget.roomId, user.uid);
+      } catch (e) {
+        // 에러 무시 혹은 로그
+        debugPrint('Error leaving room: $e');
+      }
+    }
+
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  void _showExitDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(AppStrings.leaveRoomTitle),
+        content: const Text(AppStrings.leaveRoomContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(AppStrings.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close confirm dialog
+              _handleLeaveRoom();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text(AppStrings.leaveRoom),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: StreamBuilder<RoomModel>(
-          stream: context.read<RoomService>().getRoomStream(widget.roomId),
-          initialData: context.read<RoomService>().getRoom(widget.roomId),
-          builder: (context, snapshot) {
-            final room = snapshot.data;
-            if (room != null) {
-              debugPrint(
-                'DEBUG: GameResultScreen room status: ${room.sessionInfo.status}',
-              );
-            }
-            final isWaiting = room?.sessionInfo.status == 'waiting';
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _showExitDialog();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: StreamBuilder<RoomModel>(
+            stream: context.read<RoomService>().getRoomStream(widget.roomId),
+            initialData: context.read<RoomService>().getRoom(widget.roomId),
+            builder: (context, snapshot) {
+              final room = snapshot.data;
+              if (room != null) {
+                debugPrint(
+                  'DEBUG: GameResultScreen room status: ${room.sessionInfo.status}',
+                );
+              }
+              final isWaiting = room?.sessionInfo.status == 'waiting';
 
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(),
-                _buildHeader(),
-                const Spacer(),
-                _buildBottomButtons(context, isWaiting, room),
-                const SizedBox(height: 40),
-              ],
-            );
-          },
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(),
+                  _buildHeader(),
+                  const Spacer(),
+                  _buildBottomButtons(context, isWaiting, room),
+                  const SizedBox(height: 40),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -185,42 +244,7 @@ class _GameResultScreenState extends State<GameResultScreen> {
               ),
             ),
           ElevatedButton.icon(
-            onPressed: () async {
-              if (room != null) {
-                // Show Loading
-                LoadingUtil.show(context, message: '퇴장 처리 중...');
-
-                final user = context.read<AuthService>().currentUser;
-                // leaveRoom 호출
-                if (user != null) {
-                  try {
-                    await context.read<RoomService>().leaveRoom(
-                      room.roomId,
-                      user.uid,
-                    );
-                  } catch (e) {
-                    // 에러 무시 혹은 로그
-                    debugPrint('Error leaving room: $e');
-                    // Hide loading on error if we want to show error?
-                    // But we proceed to navigate anyway. Simple hide is safer.
-                    // Actually, since we pushReplacement, the dialog context might get messy if we don't hide?
-                    // No, pushAndRemoveUntil will remove all dialogs too.
-                    // But let's hide to be clean if error happens and we delay?
-                  }
-                }
-              }
-
-              if (context.mounted) {
-                // Clean up not strictly necessary if pushAndRemoveUntil is used, but good for safety.
-                // However, we can't hide() if we are about to navigate away which invalidates context?
-                // Actually pushAndRemoveUntil handles it.
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (route) => false,
-                );
-              }
-            },
+            onPressed: _handleLeaveRoom,
             icon: const Icon(Icons.home),
             label: const Text('홈으로 이동'),
             style: ElevatedButton.styleFrom(
