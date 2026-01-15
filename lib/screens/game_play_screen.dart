@@ -317,10 +317,12 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 '게임을 어떻게 종료하시겠습니까?\n모든 플레이어에게 영향이 갑니다.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
               ),
               const SizedBox(height: 32),
               Column(
@@ -1208,10 +1210,12 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 AppStrings.caughtQrDesc,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
               ),
               const SizedBox(height: 24),
               ElevatedButton(

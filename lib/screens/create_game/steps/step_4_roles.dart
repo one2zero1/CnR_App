@@ -164,14 +164,17 @@ class Step4Roles extends StatelessWidget {
             if (isComingSoon &&
                 !isSelected) // Just visual indicator if needed, but logic currently allows selection
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
+                  color: Theme.of(context).disabledColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   '준비중',
-                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Theme.of(context).disabledColor,
+                  ),
                 ),
               ),
           ],

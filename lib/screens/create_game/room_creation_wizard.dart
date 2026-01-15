@@ -80,170 +80,215 @@ class _RoomCreationWizardState extends State<RoomCreationWizard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          '새 게임 만들기 (${_currentStep + 1}/$_totalSteps)',
-          style: TextStyle(color: theme.colorScheme.onSurface),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) => _handlePopInvoked(didPop),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            '새 게임 만들기 (${_currentStep + 1}/$_totalSteps)',
+            style: TextStyle(color: theme.colorScheme.onSurface),
+          ),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+            onPressed: _prevStep,
+          ),
+          // backgroundColor: Colors.white, // Removed to follow theme
+          elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(4),
+            child: LinearProgressIndicator(
+              value: (_currentStep + 1) / _totalSteps,
+              backgroundColor: AppColors.textHint.withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
+            ),
+          ),
         ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: _prevStep,
-        ),
-        // backgroundColor: Colors.white, // Removed to follow theme
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: (_currentStep + 1) / _totalSteps,
-            backgroundColor: AppColors.textHint.withOpacity(0.2),
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics:
+                      const NeverScrollableScrollPhysics(), // Disable swipe
+                  onPageChanged: _onStepChanged,
+                  children: [
+                    Step0GameMode(
+                      selectedMode: _gameMode,
+                      onModeChanged: (value) =>
+                          setState(() => _gameMode = value),
+                    ),
+                    Step1Name(
+                      initialName: _gameName,
+                      onNameChanged: (value) =>
+                          setState(() => _gameName = value),
+                    ),
+                    Step2Time(
+                      initialTime: _playTime,
+                      onTimeChanged: (value) =>
+                          setState(() => _playTime = value),
+                    ),
+                    Step3Interval(
+                      initialInterval: _locationInterval,
+                      onIntervalChanged: (value) =>
+                          setState(() => _locationInterval = value),
+                      policeCanSeeThieves: _policeCanSeeThieves,
+                      onPoliceVisibilityChanged: (value) =>
+                          setState(() => _policeCanSeeThieves = value),
+                      thievesCanSeePolice: _thievesCanSeePolice,
+                      onThiefVisibilityChanged: (value) =>
+                          setState(() => _thievesCanSeePolice = value),
+                    ),
+                    Step4Roles(
+                      initialMethod: _roleMethod,
+                      onMethodChanged: (value) =>
+                          setState(() => _roleMethod = value),
+                    ),
+                    Step5Area(
+                      initialCenter: _centerPosition,
+                      initialRadius: _areaRadius,
+                      onAreaChanged: (center, radius) {
+                        setState(() {
+                          _centerPosition = center;
+                          _areaRadius = radius;
+                        });
+                      },
+                      onLoadingStateChanged: (isLoading) {
+                        // Prevent setState if widget is unmounted or no change
+                        if (_isStep5Loading != isLoading) {
+                          // Using addPostFrameCallback to avoid build phase errors if called immediately
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              setState(() => _isStep5Loading = isLoading);
+                            }
+                          });
+                        }
+                      },
+                    ),
+                    Step6Jail(
+                      gameMode: _gameMode,
+                      gameName: _gameName.isEmpty ? '새 게임' : _gameName,
+                      playTime: _playTime.toInt(),
+                      locationInterval: _locationInterval.toInt(),
+                      policeCanSeeThieves: _policeCanSeeThieves,
+                      thievesCanSeePolice: _thievesCanSeePolice,
+                      roleMethod: _roleMethod,
+                      centerPosition: _centerPosition,
+                      radius: _areaRadius.toInt(),
+                      initialJailPosition: _jailPosition,
+                      onJailSelected: (pos) =>
+                          setState(() => _jailPosition = pos),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Row(
+                  children: [
+                    if (_currentStep > 0) ...[
+                      Expanded(
+                        flex: 1,
+                        child: OutlinedButton(
+                          onPressed: _prevStep,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: const BorderSide(color: AppColors.textHint),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            '이전',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                    if (_currentStep < _totalSteps - 1)
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: (_currentStep == 5 && _isStep5Loading)
+                              ? null
+                              : _nextStep,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            disabledBackgroundColor:
+                                Colors.grey[300], // Explicit disabled color
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _currentStep == 5 && _isStep5Loading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  '다음',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(), // Disable swipe
-                onPageChanged: _onStepChanged,
-                children: [
-                  Step0GameMode(
-                    selectedMode: _gameMode,
-                    onModeChanged: (value) => setState(() => _gameMode = value),
-                  ),
-                  Step1Name(
-                    initialName: _gameName,
-                    onNameChanged: (value) => setState(() => _gameName = value),
-                  ),
-                  Step2Time(
-                    initialTime: _playTime,
-                    onTimeChanged: (value) => setState(() => _playTime = value),
-                  ),
-                  Step3Interval(
-                    initialInterval: _locationInterval,
-                    onIntervalChanged: (value) =>
-                        setState(() => _locationInterval = value),
-                    policeCanSeeThieves: _policeCanSeeThieves,
-                    onPoliceVisibilityChanged: (value) =>
-                        setState(() => _policeCanSeeThieves = value),
-                    thievesCanSeePolice: _thievesCanSeePolice,
-                    onThiefVisibilityChanged: (value) =>
-                        setState(() => _thievesCanSeePolice = value),
-                  ),
-                  Step4Roles(
-                    initialMethod: _roleMethod,
-                    onMethodChanged: (value) =>
-                        setState(() => _roleMethod = value),
-                  ),
-                  Step5Area(
-                    initialCenter: _centerPosition,
-                    initialRadius: _areaRadius,
-                    onAreaChanged: (center, radius) {
-                      setState(() {
-                        _centerPosition = center;
-                        _areaRadius = radius;
-                      });
-                    },
-                    onLoadingStateChanged: (isLoading) {
-                      // Prevent setState if widget is unmounted or no change
-                      if (_isStep5Loading != isLoading) {
-                        // Using addPostFrameCallback to avoid build phase errors if called immediately
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            setState(() => _isStep5Loading = isLoading);
-                          }
-                        });
-                      }
-                    },
-                  ),
-                  Step6Jail(
-                    gameMode: _gameMode,
-                    gameName: _gameName.isEmpty ? '새 게임' : _gameName,
-                    playTime: _playTime.toInt(),
-                    locationInterval: _locationInterval.toInt(),
-                    policeCanSeeThieves: _policeCanSeeThieves,
-                    thievesCanSeePolice: _thievesCanSeePolice,
-                    roleMethod: _roleMethod,
-                    centerPosition: _centerPosition,
-                    radius: _areaRadius.toInt(),
-                    initialJailPosition: _jailPosition,
-                    onJailSelected: (pos) =>
-                        setState(() => _jailPosition = pos),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Row(
-                children: [
-                  if (_currentStep > 0) ...[
-                    Expanded(
-                      flex: 1,
-                      child: OutlinedButton(
-                        onPressed: _prevStep,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: const BorderSide(color: AppColors.textHint),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          '이전',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                  ],
-                  if (_currentStep < _totalSteps - 1)
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: (_currentStep == 5 && _isStep5Loading)
-                            ? null
-                            : _nextStep,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          disabledBackgroundColor:
-                              Colors.grey[300], // Explicit disabled color
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _currentStep == 5 && _isStep5Loading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                '다음',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
+  }
+
+  void _handlePopInvoked(bool didPop) async {
+    if (didPop) return;
+
+    if (_currentStep > 0) {
+      _prevStep();
+    } else {
+      final shouldPop = await _showExitConfirmation();
+      if (shouldPop && mounted) {
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  Future<bool> _showExitConfirmation() async {
+    return await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('방 생성 취소'),
+            content: const Text('방 생성을 취소하고 홈 화면으로 돌아가시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('계속 작성'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                child: const Text('나가기'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 }

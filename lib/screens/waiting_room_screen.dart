@@ -781,7 +781,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
     final isPolice = player.role == TeamRole.police;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(4),
@@ -852,7 +852,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
         decoration: BoxDecoration(
           color:
               Theme.of(context).inputDecorationTheme.fillColor ??
-              Colors.grey.shade200,
+              Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Text(
@@ -924,7 +924,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: theme.inputDecorationTheme.fillColor ?? Colors.grey[100],
+                color:
+                    theme.inputDecorationTheme.fillColor ??
+                    theme.cardTheme.color,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(

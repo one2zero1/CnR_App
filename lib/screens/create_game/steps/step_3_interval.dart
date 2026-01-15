@@ -31,19 +31,22 @@ class Step3Interval extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // ... (keep header text same) ...
-            const Text(
+            Text(
               '위치 공개 설정',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '서로의 위치를 볼 수 있는지 설정하고,\n위치 갱신 주기를 정해주세요.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -51,7 +54,7 @@ class Step3Interval extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.textHint.withOpacity(0.2)),
               ),
@@ -105,12 +108,12 @@ class Step3Interval extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    const Text(
+                    Text(
                       '위치 공개 주기',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 16),

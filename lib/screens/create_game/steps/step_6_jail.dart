@@ -176,7 +176,31 @@ class _Step6JailState extends State<Step6Jail> {
               FlutterMap(
                 options: MapOptions(
                   initialCenter: widget.centerPosition,
-                  initialZoom: 16.0,
+                  initialCameraFit: CameraFit.bounds(
+                    bounds: LatLngBounds.fromPoints([
+                      _distance.offset(
+                        widget.centerPosition,
+                        widget.radius.toDouble(),
+                        0,
+                      ), // North
+                      _distance.offset(
+                        widget.centerPosition,
+                        widget.radius.toDouble(),
+                        90,
+                      ), // East
+                      _distance.offset(
+                        widget.centerPosition,
+                        widget.radius.toDouble(),
+                        180,
+                      ), // South
+                      _distance.offset(
+                        widget.centerPosition,
+                        widget.radius.toDouble(),
+                        270,
+                      ), // West
+                    ]),
+                    padding: const EdgeInsets.all(50),
+                  ),
                   onTap: _onMapTap,
                 ),
                 children: [
@@ -280,7 +304,7 @@ class _Step6JailState extends State<Step6Jail> {
                       Icons.info_outline,
                       color: widget.initialJailPosition != null
                           ? AppColors.primary
-                          : AppColors.textSecondary,
+                          : Theme.of(context).textTheme.bodyMedium?.color,
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -292,7 +316,7 @@ class _Step6JailState extends State<Step6Jail> {
                         fontWeight: FontWeight.bold,
                         color: widget.initialJailPosition != null
                             ? AppColors.primary
-                            : AppColors.textSecondary,
+                            : Theme.of(context).textTheme.bodyMedium?.color,
                       ),
                     ),
                   ],

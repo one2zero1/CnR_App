@@ -105,11 +105,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       AppStrings.gpsAccuracy,
                       style: TextStyle(
                         fontSize: 16,
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
                     Text(
@@ -118,9 +118,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           : _gpsAccuracy > 0.7
                           ? AppStrings.gpsHigh
                           : AppStrings.gpsNormal,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.textSecondary,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
                       ),
                     ),
                   ],
@@ -132,16 +132,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   activeColor: AppColors.primary,
                 ),
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       AppStrings.battery,
-                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).hintColor,
+                      ),
                     ),
                     Text(
                       AppStrings.accuracy,
-                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).hintColor,
+                      ),
                     ),
                   ],
                 ),
@@ -176,12 +182,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(),
           _buildSectionHeader(AppStrings.settingsAppInfo),
-          const ListTile(
+          ListTile(
             leading: Icon(Icons.info_outline),
             title: Text(AppStrings.version),
             trailing: Text(
               '1.0.0',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
             ),
           ),
           ListTile(
@@ -237,7 +245,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: Text(title),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).textTheme.bodyMedium?.color,
+        ),
       ),
       value: value,
       onChanged: onChanged,
