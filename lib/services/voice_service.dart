@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -24,6 +25,10 @@ class VoiceService {
   StreamSubscription<List<int>>? _recorderSubscription;
   String? _currentStreamId;
   int _currentSequence = 0;
+
+  // Volume Control
+  double _currentVolume = 1.0;
+  StreamSubscription<double>? _volumeSubscription;
 
   // Buffer for micro-chunking (accumulate PCM bytes until 300ms)
   // 16kHz * 1ch * 2 bytes/sample = 32000 bytes/sec.
@@ -60,6 +65,13 @@ class VoiceService {
 
     await _recorder.initialize();
     await _player.initialize();
+
+    // Initialize Volume Control
+    _currentVolume = await FlutterVolumeController.getVolume() ?? 1.0;
+    _volumeSubscription = FlutterVolumeController.addListener((volume) {
+      debugPrint('VoiceService: System volume changed to $volume');
+      _currentVolume = volume;
+    });
 
     _isInit = true;
     debugPrint('VoiceService: init complete');
@@ -101,6 +113,8 @@ class VoiceService {
   }
 
   void dispose() {
+    _volumeSubscription?.cancel();
+    FlutterVolumeController.removeListener();
     _recorderSubscription?.cancel();
     _firebaseSubscription?.cancel();
     _recorder.stop(); // Stop if running
@@ -326,9 +340,27 @@ class VoiceService {
 
     if (encodedData.isNotEmpty) {
       final bytes = base64Decode(encodedData);
-      debugPrint('VoiceService: Writing ${bytes.length} bytes to player');
+
+      // Apply device volume scaling
+      // Convert to Int16List (assumes 16-bit PCM, Little Endian)
+      // Note: We copy to a new list to avoid modifying the original if it's a view,
+      // and to ensure acceptable mutability.
+      final pcm16 = bytes.buffer.asInt16List();
+      final adjustedPcm16 = Int16List(pcm16.length);
+
+      for (int i = 0; i < pcm16.length; i++) {
+        // Scale and clamp
+        final val = (pcm16[i] * _currentVolume).round();
+        adjustedPcm16[i] = val.clamp(-32768, 32767);
+      }
+
+      final adjustedBytes = adjustedPcm16.buffer.asUint8List();
+
+      debugPrint(
+        'VoiceService: Writing ${adjustedBytes.length} bytes to player (Volume: $_currentVolume)',
+      );
       // Write to player buffer directly
-      _player.writeChunk(bytes);
+      _player.writeChunk(adjustedBytes);
     }
   }
 }
