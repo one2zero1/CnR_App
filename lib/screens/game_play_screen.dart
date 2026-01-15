@@ -1827,7 +1827,7 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   Widget _buildVoiceOverlay() {
     return Positioned(
       top: 100,
-      right: 16,
+      left: 16,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
