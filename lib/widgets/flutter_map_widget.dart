@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../theme/app_theme.dart';
+import 'map_marker.dart';
 
 class FlutterMapWidget extends StatefulWidget {
   final LatLng? initialPosition;
@@ -141,7 +142,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, color: color, size: 36),
+                    MapMarker(color: color, icon: icon, size: 36),
                     if (markerData.nickname.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -177,21 +178,12 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
             markers: [
               Marker(
                 point: center,
-                width: 24,
-                height: 24,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.blue, // 내 위치는 파란색
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                width: 40,
+                height: 40,
+                child: const MapMarker(
+                  color: AppColors.success, // 일관성 있게 success(초록)색 사용
+                  icon: Icons.my_location,
+                  size: 40,
                 ),
               ),
             ],
@@ -205,24 +197,10 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                 point: widget.jailPosition!,
                 width: 40,
                 height: 40,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: AppColors.police, width: 2),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.grid_view,
-                    color: AppColors.police,
-                    size: 24,
-                  ),
+                child: const MapMarker(
+                  color: AppColors.police,
+                  icon: Icons.grid_view,
+                  size: 40,
                 ),
               ),
             ],
